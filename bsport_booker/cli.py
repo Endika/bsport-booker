@@ -95,7 +95,7 @@ def _discover(client: Bsport, email: str, password: str, today: dt.date) -> int:
         client.login(email, password)
         studios = client.studios()
         if not studios:
-            print("No bookings yet, so bsport won't say which studios are yours. Book one by hand.")
+            print("No upcoming bookings, so bsport won't say which studios are yours. Book one.")
             return 1
         for establishment, title in sorted(studios.items()):
             offers = client.raw_offers(establishment, today, today + dt.timedelta(days=14))

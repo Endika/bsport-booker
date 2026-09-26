@@ -58,7 +58,7 @@ cp config.example.toml ~/.config/bsport/config.toml
 ```
 
 Find your studio's ids and class names. bsport only tells a member which studios are theirs
-through their bookings, so book one class by hand first.
+through their upcoming bookings, so have at least one class booked.
 
 ```sh
 python3 -m bsport_booker --config ~/.config/bsport/config.toml --discover

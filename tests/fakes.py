@@ -107,11 +107,9 @@ class FakeBsport:
                 for o in self.bookings
             ]
             return self._page(rows, query, url)
-        if (method, path) == ("GET", "/api-v0/booking/past/"):
-            return self._page([], query, url)
         if (method, path) == ("GET", "/buyable/v1/payment-pack/consumer-payment-pack/"):
             assert query.get("member") == str(MEMBER)
-            return self._page(self.packs, query, url)
+            return _json(self.packs)  # the real one is not paginated either
         if (method, path) == ("GET", "/book/v1/offer/"):
             assert query["establishment"] == str(ESTABLISHMENT)
             assert query.get("company", str(COMPANY)) == str(COMPANY)

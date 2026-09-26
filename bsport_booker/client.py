@@ -87,6 +87,8 @@ class Bsport:
             if not next_url:
                 return out
             page = self._call(what, "GET", next_url)
+            if isinstance(page, list):  # some endpoints (packs) skip pagination altogether
+                return out + page
             if not isinstance(page, dict) or not isinstance(page.get("results"), list):
                 raise BsportError(what, 200, "unexpected shape")
             out += page["results"]
@@ -107,9 +109,8 @@ class Bsport:
         return int(found[0]["id"])
 
     def studios(self) -> dict[int, str]:
-        """Where your bookings are: the only way bsport tells a member which studios it knows."""
+        """Where your upcoming bookings are: the only way bsport tells a member its studios."""
         bookings = self._pages("bookings", f"{API}/api-v0/booking/future/?page_size=100")
-        bookings += self._pages("bookings", f"{API}/api-v0/booking/past/?page_size=100")
         found: dict[int, str] = {}
         for b in bookings:
             place = ((b.get("offer") or {}).get("activity") or {}).get("etablissement") or {}
