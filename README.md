@@ -81,6 +81,21 @@ reads and says nothing.
 */30 * * * * cd ~/bsport-booker && flock -n /tmp/bsport-booker.lock /usr/bin/python3 -m bsport_booker --config ~/.config/bsport/config.toml >> ~/bsport-booker/booker.log 2>&1
 ```
 
+## Layout
+
+Ports and adapters, with the decisions kept away from the plumbing:
+
+```
+domain/       offers, packs, wanted classes and the booking policy: pure, no I/O
+ports/        the bsport gateway, the notifier, the state store and the HTTP transport
+adapters/     bsport/ (API and parsing), notify/ (Slack), state/ (JSON file), http.py
+application/  the run, the once-a-day gates, --status, --dry-run, --discover, the wording
+cli/          argparse and the composition root
+```
+
+The domain says what to do with each class; the application does it and decides what is
+worth a message. Every sentence you read on Slack lives in `application/messages.py`.
+
 ## Development
 
 ```sh
@@ -88,7 +103,7 @@ make install
 make check   # ruff, format, mypy --strict, pytest
 ```
 
-The tests run the real client against an in-memory bsport and an in-memory Slack. No mocks,
+The tests run the real adapters against an in-memory bsport and an in-memory Slack. No mocks,
 and nothing touches the network.
 
 ## License
