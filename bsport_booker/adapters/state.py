@@ -46,7 +46,9 @@ class JsonFileState:
 
     def _write(self, state: dict[str, str]) -> None:
         tmp = self._path.with_suffix(".tmp")
-        with tmp.open("w") as out:
+        # A leftover tmp would keep its old mode through the rename, so start from scratch.
+        tmp.unlink(missing_ok=True)
+        with os.fdopen(os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), "w") as out:
             out.write(json.dumps(state, indent=2, sort_keys=True) + "\n")
             out.flush()
             os.fsync(out.fileno())

@@ -73,3 +73,14 @@ def test_a_marker_that_cannot_be_kept_lets_every_warning_through(tmp_path):
 
     assert marker.first_today(NOW.date())
     assert marker.first_today(NOW.date())
+
+
+def test_the_state_file_stays_private_even_over_a_leftover_temp_file(tmp_path):
+    path = tmp_path / "state.json"
+    leftover = tmp_path / "state.tmp"
+    leftover.write_text("{}")
+    leftover.chmod(0o644)
+
+    assert JsonFileState(path).save({"booked:1": "2026-09-26"})
+
+    assert path.stat().st_mode & 0o777 == 0o600
