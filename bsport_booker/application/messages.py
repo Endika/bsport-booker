@@ -107,6 +107,10 @@ def unsaved(path: Path) -> str:
     return f"❌ bsport: no puedo guardar {path}; aviso una vez al día hasta arreglarlo."
 
 
+def unreadable(path: Path, error: Exception) -> str:
+    return f"⚠️ bsport: {path} está corrupto ({error}); lo apartará la próxima pasada normal."
+
+
 def set_aside(path: Path, error: Exception, moved_to: str | None) -> str:
     if moved_to is None:
         return f"❌ bsport: {path} no se puede leer ({error}) ni apartar; empiezo sin memoria."

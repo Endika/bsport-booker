@@ -429,3 +429,32 @@ def test_discover_shows_class_times_on_the_studio_wall_clock(home, bsport, capsy
     assert tick(home, bsport, "--discover") == 0
 
     assert "FUNCTIONAL TRAINING: lun 11:00" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("mode", ["--status", "--dry-run", "--discover"])
+def test_a_look_reports_a_corrupt_state_and_leaves_it_where_it_is(home, bsport, capsys, mode):
+    bsport.pack(*SEPTEMBER, credits=5)
+    monday = bsport.offer("2026-09-28T11:00")
+    bsport.bookings.append(monday["id"])
+    bsport.studio = {"id": ESTABLISHMENT, "title": "Estudio Demo"}
+    (home / "state.json").write_text("{nope")
+
+    assert tick(home, bsport, mode) == 0
+
+    assert "corrupto" in capsys.readouterr().out
+    assert (home / "state.json").read_text() == "{nope"
+    assert list(home.glob("state.json.corrupt-*")) == []
+    assert sum("corrupto" in m for m in slack(bsport)) == (1 if mode == "--status" else 0)
+
+
+def test_the_next_real_run_after_a_look_still_sets_a_corrupt_state_aside_and_says_so(home, bsport):
+    bsport.pack(*SEPTEMBER, credits=5)
+    (home / "state.json").write_text("{nope")
+
+    tick(home, bsport, "--status")
+    tick(home, bsport)
+
+    assert [p.name for p in home.glob("state.json.corrupt-*")] == [
+        "state.json.corrupt-202609262100"
+    ]
+    assert "lo he apartado" in slack(bsport)[-1]

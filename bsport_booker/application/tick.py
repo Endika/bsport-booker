@@ -35,10 +35,12 @@ class Tick:
     now: dt.datetime
 
     def run(self, mode: Mode) -> bool:
-        state, notes = self._recall()
+        state, notes = self._recall(mode)
         try:
             email, password = read_credentials(self.config.credentials)
             if mode is Mode.DISCOVER:
+                for note in notes:
+                    print(note)
                 return discover(self.bsport, email, password, self.now.date())
             self.bsport.login(email, password)
             report = book_due(
@@ -50,12 +52,15 @@ class Tick:
             return False
         if mode is Mode.BOOK:
             return self._announce(report, notes, state)
-        return self._show(report, mode)
+        return self._show(report, notes, mode)
 
-    def _recall(self) -> tuple[dict[str, str], list[str]]:
+    def _recall(self, mode: Mode) -> tuple[dict[str, str], list[str]]:
         try:
             return self.store.load(), []
         except StateError as exc:
+            # Only a real run owns the state: a look leaves the evidence where it is.
+            if mode is not Mode.BOOK:
+                return {}, [messages.unreadable(self.config.state, exc)]
             moved = self.store.set_aside(self.now)
             return {}, [messages.set_aside(self.config.state, exc, moved)]
 
@@ -72,8 +77,9 @@ class Tick:
         elif key not in state and self._tell(text):
             self.store.save({**state, key: self.now.date().isoformat()})
 
-    def _show(self, report: Report, mode: Mode) -> bool:
-        text = messages.picture(report.lines, report.credits, report.published_until)
+    def _show(self, report: Report, notes: list[str], mode: Mode) -> bool:
+        picture = messages.picture(report.lines, report.credits, report.published_until)
+        text = "\n".join([*notes, picture])
         print((messages.DRY_RUN if mode is Mode.DRY_RUN else "") + text)
         if mode is Mode.STATUS:
             self._tell(text)
