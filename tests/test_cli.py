@@ -458,3 +458,15 @@ def test_the_next_real_run_after_a_look_still_sets_a_corrupt_state_aside_and_say
         "state.json.corrupt-202609262100"
     ]
     assert "lo he apartado" in slack(bsport)[-1]
+
+
+def test_a_redirected_booking_is_an_error_and_is_never_reported_as_booked(home, bsport):
+    bsport.pack(*SEPTEMBER, credits=5)
+    bsport.offer("2026-09-28T11:00")
+    bsport.book_status = 302
+
+    assert tick(home, bsport) == 1
+
+    [message] = slack(bsport)
+    assert "no he podido reservarla (book: HTTP 302" in message
+    assert "reservada" not in message

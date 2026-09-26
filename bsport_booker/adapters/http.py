@@ -9,11 +9,18 @@ import urllib.request
 from ..ports import Response
 
 
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    # Followed, a redirect would carry the token to another host and turn the booking POST
+    # into a GET whose 200 reads as success. Refused, it comes back as the 3xx it is.
+    def redirect_request(self, *_args: object, **_kwargs: object) -> None:
+        return None
+
+
 class UrllibTransport:
     def __init__(self, timeout: float = 30) -> None:
         self._timeout = timeout
         self._opener = urllib.request.build_opener(
-            urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar())
+            urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()), _NoRedirect()
         )
 
     def request(
@@ -23,6 +30,6 @@ class UrllibTransport:
         try:
             with self._opener.open(req, timeout=self._timeout) as res:
                 return Response(res.status, res.read(), dict(res.headers.items()))
-        # urllib raises on 4xx and 5xx; the callers want those as answers.
+        # urllib raises on 3xx, 4xx and 5xx; the callers want those as answers.
         except urllib.error.HTTPError as err:
             return Response(err.code, err.read(), dict(err.headers.items()))
