@@ -34,40 +34,41 @@ def main(
 
     try:
         config = load(args.config)
-        email, password = read_credentials(config.credentials)
     except ConfigError as exc:
         log.error("%s", exc)
         return 2
 
     now = now or dt.datetime.now(TZ)
     http = transport or UrllibTransport()
+    looking = args.dry_run or args.status or args.discover
+
+    def say(text: str) -> bool:
+        return _say(http, config.slack_token, config.slack_channel, text, quiet=args.dry_run)
+
+    notes: list[str] = []
     try:
         state = booker.load_state(config.state)
-    except ValueError as exc:
-        text = f"❌ bsport: {config.state} está corrupto ({exc}); arréglalo o bórralo."
-        print(text)
-        _say(http, config.slack_token, config.slack_channel, text, quiet=args.dry_run)
-        return 1
+    except booker.StateError as exc:
+        state = {}
+        notes.append(_set_aside(config.state, now, exc))
+
     client = Bsport(http)
-    if args.discover:
-        return _discover(client, email, password, now.date())
-    looking = args.dry_run or args.status
     try:
+        email, password = read_credentials(config.credentials)
+        if args.discover:
+            return _discover(client, email, password, now.date())
         client.login(email, password)
         report = booker.run(client, config, state, now=now, dry_run=looking)
     except Exception as exc:
         log.exception("run aborted")
-        detail = str(exc) or type(exc).__name__
         # Cron runs this every half hour: one message a day per kind of failure is plenty.
         kind = f"{type(exc).__name__}:{exc.status if isinstance(exc, BsportError) else ''}"
         key = f"fatal:{now:%Y-%m-%d}:{kind}"
-        text = f"❌ bsport: no he podido mirar las clases. {detail}"
+        text = "\n".join([*notes, f"❌ bsport: no he podido mirar las clases. {exc or kind}"])
         print(text)
-        if key not in state or looking:
+        if (key not in state or looking) and say(text) and not looking:
             state[key] = now.date().isoformat()
-            _say(http, config.slack_token, config.slack_channel, text, quiet=args.dry_run)
-            if not looking:
-                _save(config.state, state)
+            _save(config.state, state)
         return 1
 
     if looking:
@@ -77,17 +78,41 @@ def main(
             text += f"\nCalendario publicado hasta el {report.published_until}"
         print(("(simulado, no se ha reservado nada)\n" if args.dry_run else "") + text)
         if args.status:
-            _say(http, config.slack_token, config.slack_channel, text)
+            say(text)
         return 1 if report.failed else 0
 
     for line in report.lines:
         log.info("%s", line)
-    ok = _save(config.state, state)
-    if report.news:
-        text = "\n".join([*report.news, report.credits])
+    news = [*notes, *(text for _, text in report.news)]
+    # Without a state every run looks new, so a state that cannot be written may speak only in
+    # the one run a day at 08:00, instead of repeating itself every half hour.
+    writable = _save(config.state, state)
+    if not writable:
+        news.append(
+            f"❌ bsport: no puedo guardar {config.state}; hasta que se arregle, aviso a las 8."
+        )
+    announced = True
+    if news:
+        text = "\n".join([*news, report.credits])
         print(text)
-        ok = _say(http, config.slack_token, config.slack_channel, text) and ok
-    return 0 if ok and not report.failed else 1
+        if writable or _morning(now):
+            announced = say(text)
+    booker.commit(state, report, now.date(), announced=announced)
+    saved = writable and _save(config.state, state)
+    return 0 if saved and announced and not report.failed else 1
+
+
+def _morning(now: dt.datetime) -> bool:
+    return now.hour == 8 and now.minute < 30
+
+
+def _set_aside(path: Path, now: dt.datetime, exc: Exception) -> str:
+    corrupt = path.with_name(f"{path.name}.corrupt-{now:%Y%m%d%H%M}")
+    try:
+        path.replace(corrupt)
+    except OSError:
+        return f"❌ bsport: {path} no se puede leer ({exc}) ni apartar; empiezo sin memoria."
+    return f"⚠️ bsport: {path} estaba corrupto ({exc}); lo he apartado a {corrupt.name}."
 
 
 def _discover(client: Bsport, email: str, password: str, today: dt.date) -> int:
@@ -108,7 +133,7 @@ def _discover(client: Bsport, email: str, password: str, today: dt.date) -> int:
                 slots.setdefault(str(o.get("activity_name") or "?"), set()).add(slot)
             for name, times in sorted(slots.items()):
                 print(f"  {name}: {', '.join(sorted(times, key=_slot_order))}")
-    except BsportError as exc:
+    except (BsportError, KeyError, ValueError) as exc:
         print(f"bsport: {exc}")
         return 1
     return 0

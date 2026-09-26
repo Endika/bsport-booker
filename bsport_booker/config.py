@@ -93,18 +93,27 @@ def load(path: Path) -> Config:
         company, establishment = int(raw["company"]), int(raw["establishment"])
     except (KeyError, TypeError, ValueError) as exc:
         raise ConfigError(f"{path}: `company` and `establishment` must be numbers") from exc
-    classes = tuple(
-        _wanted(c, f"{path} [[class]] #{i + 1}") for i, c in enumerate(raw.get("class", []))
-    )
+    blocks = raw.get("class", [])
+    if not isinstance(blocks, list) or not all(isinstance(c, dict) for c in blocks):
+        raise ConfigError(f"{path}: classes go in [[class]] blocks")
+    classes = tuple(_wanted(c, f"{path} [[class]] #{i + 1}") for i, c in enumerate(blocks))
     if not classes:
         raise ConfigError(f"{path}: add at least one [[class]]")
     slack = raw.get("slack", {})
+    if not isinstance(slack, dict):
+        raise ConfigError(f"{path}: `slack` must be a table")
+    try:
+        horizon, low = int(raw.get("horizon_days", 60)), int(raw.get("low_credits", 2))
+    except (TypeError, ValueError) as exc:
+        raise ConfigError(f"{path}: `horizon_days` and `low_credits` must be numbers") from exc
+    if not 1 <= horizon <= 90:
+        raise ConfigError(f"{path}: `horizon_days` must be between 1 and 90")
     return Config(
         company=company,
         establishment=establishment,
         classes=classes,
-        horizon_days=int(raw.get("horizon_days", 60)),
-        low_credits=int(raw.get("low_credits", 2)),
+        horizon_days=horizon,
+        low_credits=low,
         credentials=_here(base, str(raw.get("credentials", "credentials"))),
         state=_here(base, str(raw.get("state", "state.json"))),
         slack_token=str(slack.get("token", "")),
@@ -117,7 +126,7 @@ def read_credentials(path: Path) -> tuple[str, str]:
         lines = path.read_text().splitlines()
     except OSError as exc:
         raise ConfigError(f"credentials: {exc}") from exc
-    pairs = dict(line.split("=", 1) for line in lines if "=" in line)
+    pairs = {k.strip(): v for k, v in (line.split("=", 1) for line in lines if "=" in line)}
     email, password = pairs.get("email", "").strip(), pairs.get("password", "")
     if not email or not password:
         raise ConfigError(f"{path}: needs `email=` and `password=` lines")

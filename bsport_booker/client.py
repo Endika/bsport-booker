@@ -7,6 +7,7 @@ import json
 import urllib.parse
 from dataclasses import dataclass
 from typing import Any
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from .http import Response, Transport
 
@@ -14,6 +15,7 @@ API = "https://api.production.bsport.io"
 LOGIN = f"{API}/platform/v1/authentication/signin/with-login/"
 USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64) bsport-booker"
 MAX_PAGES = 20
+DEFAULT_TZ = ZoneInfo("Europe/Madrid")
 
 
 class BsportError(Exception):
@@ -37,11 +39,23 @@ class Pack:
     id: int
     start: dt.date
     end: dt.date
-    credits: int
+    credits: int | None  # None: bsport keeps no count, the pack is unlimited
     disabled: bool
 
     def covers(self, day: dt.date) -> bool:
         return not self.disabled and self.start <= day <= self.end
+
+
+def _local(stamp: str, zone: object) -> dt.datetime:
+    """The class start on the studio's wall clock, whatever offset bsport wrote it in."""
+    start = dt.datetime.fromisoformat(stamp.replace("Z", "+00:00"))
+    try:
+        tz = ZoneInfo(str(zone)) if zone else None
+    except (ZoneInfoNotFoundError, ValueError):
+        tz = None
+    if start.tzinfo is None:
+        return start.replace(tzinfo=tz or DEFAULT_TZ)
+    return start.astimezone(tz) if tz else start
 
 
 def _detail(res: Response) -> str:
@@ -142,7 +156,9 @@ class Bsport:
                 id=int(p["id"]),
                 start=dt.date.fromisoformat(p["starting_date"]),
                 end=dt.date.fromisoformat(p["ending_date"]),
-                credits=int(p.get("available_credits") or 0),
+                credits=None
+                if p.get("available_credits") is None
+                else int(float(p["available_credits"])),
                 disabled=bool(p.get("disabled")),
             )
             for p in raw
@@ -165,10 +181,10 @@ class Bsport:
             Offer(
                 id=int(o["id"]),
                 name=str(o.get("activity_name") or ""),
-                start=dt.datetime.fromisoformat(o["date_start"]),
+                start=_local(o["date_start"], o.get("timezone_name")),
                 available=bool(o.get("available")),
                 full=bool(o.get("full")),
-                credits=int(o.get("credit_price") or 0),
+                credits=int(float(o.get("credit_price") or 0)),
             )
             for o in self._pages("offers", f"{API}/book/v1/offer/?{query}")
         ]

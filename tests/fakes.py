@@ -130,7 +130,8 @@ class FakeBsport:
                 return _json({"error": "nope"}, self.book_status)
             pack = next(p for p in self.packs if p["id"] == int(m[1]))
             offer = next(o for o in self.offers if o["id"] == body["offer"])
-            pack["available_credits"] -= offer["credit_price"]
+            if pack["available_credits"] is not None:
+                pack["available_credits"] -= int(float(offer["credit_price"]))
             self.bookings.append(offer["id"])
             return _json(
                 {"id": pack["id"], "available_credits": pack["available_credits"]}, self.book_status

@@ -231,13 +231,96 @@ def test_every_page_of_offers_is_read(home, bsport):
     assert len(booked_offers(bsport)) == 5
 
 
-def test_a_corrupt_state_file_is_reported(home, bsport):
-    (home / "state.json").write_text("{nope")
+@pytest.mark.parametrize("junk", ["{nope", "[]"])
+def test_a_corrupt_state_is_set_aside_once_and_booking_goes_on(home, bsport, junk):
+    bsport.pack(*SEPTEMBER, credits=5)
+    monday = bsport.offer("2026-09-28T11:00")
+    (home / "state.json").write_text(junk)
+
+    assert tick(home, bsport) == 0
+    tick(home, bsport)
+
+    assert booked_offers(bsport) == [monday["id"]]
+    assert sum("corrupto" in m for m in slack(bsport)) == 1
+    assert [p.name for p in home.glob("state.json.corrupt-*")] == [
+        "state.json.corrupt-202609262100"
+    ]
+
+
+def test_a_state_that_cannot_be_saved_speaks_only_at_eight(home, bsport):
+    config = home / "config.toml"
+    config.write_text('state = "missing/dir/state.json"\n' + config.read_text())
+    bsport.pack(*SEPTEMBER, credits=5)
+    bsport.offer("2026-09-30T11:00", full=True)
+
+    for minutes in range(0, 180, 30):  # 07:00 to 09:30
+        tick(home, bsport, now=NOW.replace(day=27, hour=7) + dt.timedelta(minutes=minutes))
+
+    [message] = slack(bsport)
+    assert "no puedo guardar" in message
+    assert "está llena" in message
+
+
+def test_news_that_slack_did_not_take_is_sent_again_next_run(home, bsport):
+    bsport.pack(*SEPTEMBER, credits=5)
+    bsport.offer("2026-09-28T11:00")
+    bsport.slack_ok = False
 
     assert tick(home, bsport) == 1
+    bsport.slack_ok = True
+    assert tick(home, bsport) == 0
 
-    assert "corrupto" in slack(bsport)[0]
-    assert bsport.calls[:-1] == []
+    assert "🎉 lun 28/09 11:00 Functional Training: reservada" in slack(bsport)[-1]
+    assert len(booked_offers(bsport)) == 1
+
+
+def test_missing_credentials_reach_slack_once_a_day(home, bsport):
+    (home / "credentials").unlink()
+
+    assert tick(home, bsport) == 1
+    assert tick(home, bsport) == 1
+
+    assert len(slack(bsport)) == 1
+    assert "credentials" in slack(bsport)[0]
+    assert [c for c in bsport.calls if c[1] != "slack"] == []
+
+
+def test_a_class_that_fills_again_after_freeing_up_is_announced_again(home, bsport):
+    bsport.pack(*SEPTEMBER, credits=0)
+    bsport.pack(*OCTOBER, credits=12)
+    wednesday = bsport.offer("2026-09-30T11:00", full=True)
+
+    tick(home, bsport)
+    wednesday["full"] = False  # frees up, but there are no credits for that day
+    tick(home, bsport)
+    wednesday["full"] = True
+    tick(home, bsport)
+
+    assert sum("está llena" in m for m in slack(bsport)) == 2
+
+
+def test_odd_shapes_from_bsport_still_book(home, bsport):
+    unlimited = bsport.pack(*SEPTEMBER, credits=0)
+    unlimited["available_credits"] = None
+    utc = bsport.offer("2026-09-28T11:00", credits=1)
+    utc["date_start"] = "2026-09-28T09:00:00Z"
+    utc["timezone_name"] = "Europe/Madrid"
+    utc["credit_price"] = "1.00"
+
+    assert tick(home, bsport) == 0
+
+    assert booked_offers(bsport) == [utc["id"]]
+    assert "Créditos: ilimitados (bono 09/09–08/10)" in slack(bsport)[0]
+
+
+def test_winter_time_classes_match_the_same_wall_clock_hour(home, bsport):
+    bsport.pack("2026-10-20", "2026-11-19", credits=5)
+    after_the_change = bsport.offer("2026-10-26T11:00")
+    after_the_change["date_start"] = "2026-10-26T11:00:00+01:00"
+
+    tick(home, bsport)
+
+    assert booked_offers(bsport) == [after_the_change["id"]]
 
 
 @pytest.mark.parametrize(

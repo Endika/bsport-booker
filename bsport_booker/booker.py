@@ -5,6 +5,7 @@ from __future__ import annotations
 import datetime as dt
 import json
 import logging
+import os
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Protocol
@@ -27,13 +28,22 @@ class Client(Protocol):
     def book(self, pack: Pack, offer: Offer) -> None: ...
 
 
+# Keys that describe a condition: once it stops being true the key goes, so it can be said again.
+CONDITIONS = ("unavailable:", "full:", "nocredits:", "error:", "empty:", "low:", "nopack:")
+
+
 @dataclass
 class Report:
     lines: list[str] = field(default_factory=list)  # one per wanted class, for --status
-    news: list[str] = field(default_factory=list)  # first time seen: what goes to Slack
+    news: list[tuple[str, str]] = field(default_factory=list)  # (key, text) not yet announced
+    seen: set[str] = field(default_factory=set)  # every condition key true right now
     credits: str = ""
     published_until: str = ""
     failed: bool = False
+
+
+class StateError(Exception):
+    pass
 
 
 def load_state(path: Path) -> dict[str, str]:
@@ -41,13 +51,34 @@ def load_state(path: Path) -> dict[str, str]:
         raw = json.loads(path.read_text())
     except FileNotFoundError:
         return {}
+    except (OSError, ValueError) as exc:
+        raise StateError(str(exc)) from exc
+    if not isinstance(raw, dict):
+        raise StateError("not a JSON object")
     return {str(k): str(v) for k, v in raw.items()}
 
 
 def save_state(path: Path, state: dict[str, str]) -> None:
     tmp = path.with_suffix(".tmp")
-    tmp.write_text(json.dumps(state, indent=2, sort_keys=True) + "\n")
+    with tmp.open("w") as out:
+        out.write(json.dumps(state, indent=2, sort_keys=True) + "\n")
+        out.flush()
+        os.fsync(out.fileno())
     tmp.replace(path)
+
+
+def commit(state: dict[str, str], report: Report, today: dt.date, *, announced: bool) -> None:
+    """Fold a run into the state. News only counts as said once Slack took it."""
+    stamp = today.isoformat()
+    for key in [k for k in state if k.startswith(CONDITIONS) and k not in report.seen]:
+        del state[key]
+    for key in report.seen & state.keys():
+        state[key] = stamp
+    if announced:
+        state.update({key: stamp for key, _ in report.news})
+    cutoff = (today - dt.timedelta(days=FORGET_AFTER_DAYS)).isoformat()
+    for key in [k for k, seen in state.items() if seen < cutoff]:
+        del state[key]
 
 
 def when(start: dt.datetime) -> str:
@@ -55,10 +86,19 @@ def when(start: dt.datetime) -> str:
 
 
 def _pay_with(packs: list[Pack], offer: Offer) -> Pack | None:
-    need = max(offer.credits, 1)
-    usable = [p for p in packs if p.covers(offer.start.date()) and p.credits >= need]
+    usable = [
+        p
+        for p in packs
+        if p.covers(offer.start.date())
+        and (p.credits is None or p.credits >= offer.credits)
+        and (p.credits is None or p.credits > 0)
+    ]
     # The one that runs out first, so a pack never expires with credits left over.
     return min(usable, key=lambda p: p.end, default=None)
+
+
+def _count(pack: Pack) -> str:
+    return "ilimitados" if pack.credits is None else str(pack.credits)
 
 
 def _credit_lines(packs: list[Pack], today: dt.date) -> list[Pack]:
@@ -68,6 +108,7 @@ def _credit_lines(packs: list[Pack], today: dt.date) -> list[Pack]:
 def run(
     client: Client, config: Config, state: dict[str, str], *, now: dt.datetime, dry_run: bool
 ) -> Report:
+    """Books what it can (unless `dry_run`); never touches `state`, see `commit`."""
     report = Report()
     today = now.date()
     member = client.member_id()
@@ -84,10 +125,10 @@ def run(
         report.published_until = f"{WEEKDAYS[last.weekday()]} {last:%d/%m}"
 
     def news(key: str, text: str) -> None:
+        if not key.startswith("booked:"):
+            report.seen.add(key)
         if key not in state:
-            report.news.append(text)
-            if not dry_run:
-                state[key] = today.isoformat()
+            report.news.append((key, text))
 
     wanted = sorted(
         (
@@ -129,23 +170,22 @@ def run(
             report.lines.append(f"❌ {label}: error al reservar ({exc})")
             news(f"error:{offer.id}:{exc.status}", f"❌ {label}: no he podido reservarla ({exc})")
             continue
-        packs = [
-            Pack(p.id, p.start, p.end, p.credits - max(offer.credits, 1), p.disabled)
-            if p.id == pack.id
-            else p
-            for p in packs
-        ]
+        if pack.credits is not None:
+            spent = Pack(pack.id, pack.start, pack.end, pack.credits - offer.credits, pack.disabled)
+            packs = [spent if p.id == pack.id else p for p in packs]
         booked.add(offer.id)
         report.lines.append(f"🎉 {label}: reservada ahora")
         news(f"booked:{offer.id}", f"🎉 {label}: reservada")
 
     live = _credit_lines(packs, today)
     report.credits = "Créditos: " + (
-        ", ".join(f"{p.credits} (bono {p.start:%d/%m}–{p.end:%d/%m})" for p in live)
+        ", ".join(f"{_count(p)} (bono {p.start:%d/%m}–{p.end:%d/%m})" for p in live)
         if live
         else "no tienes ningún bono en vigor"
     )
     for p in live:
+        if p.credits is None:
+            continue
         if p.credits == 0:
             news(f"empty:{p.id}", f"🪫 Bono {p.start:%d/%m}–{p.end:%d/%m} agotado")
         elif p.credits <= config.low_credits:
@@ -154,9 +194,5 @@ def run(
                 f"🔋 Quedan {p.credits} créditos en el bono {p.start:%d/%m}–{p.end:%d/%m}",
             )
     if not live:
-        news(f"nopack:{today:%Y-%m}", "🪫 No tienes ningún bono en vigor")
-
-    cutoff = (today - dt.timedelta(days=FORGET_AFTER_DAYS)).isoformat()
-    for key in [k for k, seen in state.items() if seen < cutoff]:
-        del state[key]
+        news("nopack:", "🪫 No tienes ningún bono en vigor")
     return report
