@@ -12,6 +12,7 @@ from typing import Protocol
 
 from .client import BsportError, Offer, Pack
 from .config import Config
+from .config import same_class as _same_class
 
 log = logging.getLogger(__name__)
 WEEKDAYS = ("lun", "mar", "mié", "jue", "vie", "sáb", "dom")
@@ -120,8 +121,11 @@ def run(
         today,
         today + dt.timedelta(days=config.horizon_days),
     )
-    if offers:
-        last = max(o.start for o in offers)
+    # How far your classes are published, whatever the day or hour: other activities may run
+    # much further ahead and say nothing about yours.
+    yours = [o.start for o in offers if any(_same_class(o.name, w.name) for w in config.classes)]
+    if yours:
+        last = max(yours)
         report.published_until = f"{WEEKDAYS[last.weekday()]} {last:%d/%m}"
 
     def news(key: str, text: str) -> None:

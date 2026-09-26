@@ -75,7 +75,7 @@ def main(
         body = "\n".join(report.lines) or "No hay ninguna de tus clases publicada todavía."
         text = f"bsport\n{body}\n{report.credits}"
         if report.published_until:
-            text += f"\nCalendario publicado hasta el {report.published_until}"
+            text += f"\nTus clases están publicadas hasta el {report.published_until}"
         print(("(simulado, no se ha reservado nada)\n" if args.dry_run else "") + text)
         if args.status:
             say(text)

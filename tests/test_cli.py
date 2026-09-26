@@ -209,6 +209,8 @@ def test_status_sends_the_whole_picture_and_books_nothing(home, bsport):
     bsport.bookings.append(booked["id"])
     bsport.offer("2026-10-07T11:00")
     bsport.offer("2026-10-21T11:00")
+    bsport.offer("2026-10-24T09:00")  # yours, but on a day you don't book
+    bsport.offer("2026-11-25T10:00", "ENTRENAMIENTO PERSONAL")  # someone else's, far ahead
 
     assert tick(home, bsport, "--status") == 0
 
@@ -217,7 +219,7 @@ def test_status_sends_the_whole_picture_and_books_nothing(home, bsport):
     assert "✅ lun 28/09 11:00 Functional Training: reservada" in message
     assert "⚠️ mié 07/10 11:00 Functional Training: sin créditos para ese día" in message
     assert "➕ mié 21/10 11:00 Functional Training: la reservaría" in message
-    assert "Calendario publicado hasta el mié 21/10" in message
+    assert "Tus clases están publicadas hasta el sáb 24/10" in message
 
 
 def test_every_page_of_offers_is_read(home, bsport):

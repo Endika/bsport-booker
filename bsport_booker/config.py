@@ -28,6 +28,10 @@ def _plain(text: str) -> str:
     return "".join(c for c in folded if not unicodedata.combining(c)).strip()
 
 
+def same_class(a: str, b: str) -> bool:
+    return _plain(a) == _plain(b)
+
+
 @dataclass(frozen=True)
 class Wanted:
     name: str
@@ -37,7 +41,7 @@ class Wanted:
     def matches(self, name: str, start: dt.datetime) -> bool:
         # `start` carries the studio's own offset, so its wall clock is the studio's.
         return (
-            _plain(name) == _plain(self.name)
+            same_class(name, self.name)
             and start.weekday() in self.days
             and (start.hour, start.minute) == (self.time.hour, self.time.minute)
         )
