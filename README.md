@@ -74,8 +74,9 @@ python3 -m bsport_booker --config ~/.config/bsport/config.toml --status    # the
 
 ## Cron
 
-Every 30 minutes. Classes get booked soon after they're published, and a quiet run makes three
-reads and says nothing.
+Every 30 minutes. Classes get booked soon after they're published, and a quiet run logs in,
+reads your member, packs, bookings and classes (five requests, more if a list runs to several
+pages) and says nothing.
 
 ```cron
 */30 * * * * cd ~/bsport-booker && flock -n /tmp/bsport-booker.lock /usr/bin/python3 -m bsport_booker --config ~/.config/bsport/config.toml >> ~/bsport-booker/booker.log 2>&1
@@ -87,10 +88,10 @@ Ports and adapters, with the decisions kept away from the plumbing:
 
 ```
 domain/       offers, packs, wanted classes and the booking policy: pure, no I/O
-ports/        the bsport gateway, the notifier, the state store and the HTTP transport
-adapters/     bsport/ (API and parsing), notify/ (Slack), state/ (JSON file), http.py
-application/  the run, the once-a-day gates, --status, --dry-run, --discover, the wording
-cli/          argparse and the composition root
+ports.py      the bsport gateway, the notifier, the state store and the once-a-day gate
+adapters/     bsport/ (API and parsing), slack.py, state.py (JSON file, daily marker), http.py
+application/  the run, its gates, --status, --dry-run, --discover and the wording; no I/O
+cli.py        argparse, the composition root, printing and exit codes
 ```
 
 The domain says what to do with each class; the application does it and decides what is
