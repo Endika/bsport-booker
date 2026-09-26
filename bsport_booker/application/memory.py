@@ -3,11 +3,38 @@
 from __future__ import annotations
 
 import datetime as dt
+from enum import Enum
+from typing import TYPE_CHECKING
 
-from .booking import Condition, Report
+if TYPE_CHECKING:
+    from .booking import Report
 
 FORGET_AFTER_DAYS = 120
-CONDITIONS = tuple(c.prefix for c in Condition)
+
+
+class Topic(Enum):
+    """What a state key is about. The names of the skip reasons match `domain.Reason`."""
+
+    BOOKED = "booked"
+    FATAL = "fatal"
+    UNAVAILABLE = "unavailable"
+    FULL = "full"
+    NO_CREDITS = "nocredits"
+    ERROR = "error"
+    EMPTY = "empty"
+    LOW = "low"
+    NO_PACK = "nopack"
+
+    @property
+    def is_condition(self) -> bool:
+        """True right now, and forgotten once it stops being, so it can be said again."""
+        return self not in (Topic.BOOKED, Topic.FATAL)
+
+    def key(self, *parts: object) -> str:
+        return f"{self.value}:" + ":".join(map(str, parts))
+
+
+CONDITIONS = tuple(f"{t.value}:" for t in Topic if t.is_condition)
 
 
 def remember(

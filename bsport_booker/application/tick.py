@@ -12,7 +12,7 @@ from ..ports import BookingGateway, BsportError, DailyGate, Notifier, StateError
 from . import messages
 from .booking import Report, book_due
 from .discover import discover
-from .memory import remember
+from .memory import Topic, remember
 
 log = logging.getLogger(__name__)
 
@@ -71,8 +71,8 @@ class Tick:
 
     def _fatal(self, exc: Exception, notes: list[str], state: dict[str, str]) -> str:
         # However often cron runs it, one message a day per kind of failure is plenty.
-        kind = f"{type(exc).__name__}:{exc.status if isinstance(exc, BsportError) else ''}"
-        key = f"fatal:{self.now:%Y-%m-%d}:{kind}"
+        status = exc.status if isinstance(exc, BsportError) else ""
+        key = Topic.FATAL.key(f"{self.now:%Y-%m-%d}", type(exc).__name__, status)
         text = messages.fatal(notes, exc)
         if self.looking:
             self._tell(text)

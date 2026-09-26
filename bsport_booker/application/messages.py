@@ -15,16 +15,18 @@ NOTHING_PUBLISHED = "No hay ninguna de tus clases publicada todavía."
 NO_PACK = "🪫 No tienes ningún bono en vigor"
 NO_STUDIOS = "No upcoming bookings, so bsport won't say which studios are yours. Book one."
 
-_SKIP_LINES = {
-    Reason.BOOKED: "✅ {}: reservada",
-    Reason.UNAVAILABLE: "⛔ {}: no disponible",
-    Reason.FULL: "🚫 {}: llena, sigo intentándolo",
-    Reason.NO_CREDITS: "⚠️ {}: sin créditos para ese día",
-}
-_SKIP_NEWS = {
-    Reason.UNAVAILABLE: "⛔ {}: el estudio la tiene como no disponible",
-    Reason.FULL: "🚫 {}: está llena; la cojo si se libera una plaza",
-    Reason.NO_CREDITS: "⚠️ {}: no la puedo reservar, no te quedan créditos para ese día",
+# (the line in --status, the news on Slack); being booked already is never news.
+_SKIPS = {
+    Reason.BOOKED: ("✅ {}: reservada", ""),
+    Reason.UNAVAILABLE: ("⛔ {}: no disponible", "⛔ {}: el estudio la tiene como no disponible"),
+    Reason.FULL: (
+        "🚫 {}: llena, sigo intentándolo",
+        "🚫 {}: está llena; la cojo si se libera una plaza",
+    ),
+    Reason.NO_CREDITS: (
+        "⚠️ {}: sin créditos para ese día",
+        "⚠️ {}: no la puedo reservar, no te quedan créditos para ese día",
+    ),
 }
 
 
@@ -45,11 +47,13 @@ def _count(pack: Pack) -> str:
 
 
 def skip_line(skip: Skip) -> str:
-    return _SKIP_LINES[skip.reason].format(_label(skip.offer))
+    line, _ = _SKIPS[skip.reason]
+    return line.format(_label(skip.offer))
 
 
 def skip_news(skip: Skip) -> str:
-    return _SKIP_NEWS[skip.reason].format(_label(skip.offer))
+    _, news = _SKIPS[skip.reason]
+    return news.format(_label(skip.offer))
 
 
 def would_book_line(booking: Book) -> str:

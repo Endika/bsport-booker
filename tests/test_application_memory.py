@@ -3,8 +3,9 @@ from collections.abc import Iterable
 
 import pytest
 
-from bsport_booker.application.booking import Condition, Report
-from bsport_booker.application.memory import FORGET_AFTER_DAYS, remember
+from bsport_booker.application.booking import Report
+from bsport_booker.application.memory import FORGET_AFTER_DAYS, Topic, remember
+from bsport_booker.domain.policy import Reason
 
 TODAY = dt.date(2026, 9, 26)
 YESTERDAY = "2026-09-25"
@@ -49,7 +50,7 @@ def test_anything_older_than_the_cutoff_is_pruned():
     assert remember(state, run(state), TODAY, announced=True) == {"booked:1": edge}
 
 
-@pytest.mark.parametrize("condition", list(Condition))
+@pytest.mark.parametrize("condition", [t for t in Topic if t.is_condition])
 def test_every_kind_of_condition_is_forgotten_once_it_is_no_longer_seen(condition):
     key = condition.key(1)
     state = {key: YESTERDAY}
@@ -58,6 +59,16 @@ def test_every_kind_of_condition_is_forgotten_once_it_is_no_longer_seen(conditio
     assert remember(state, run(state, seen={key}), TODAY, announced=True) == {key: "2026-09-26"}
 
 
-def test_condition_keys_keep_the_shape_of_existing_state_files():
-    assert Condition.NO_PACK.key() == "nopack:"
-    assert Condition.ERROR.key(12, 400) == "error:12:400"
+def test_keys_keep_the_shape_of_existing_state_files():
+    assert Topic.NO_PACK.key() == "nopack:"
+    assert Topic.ERROR.key(12, 400) == "error:12:400"
+    assert Topic.BOOKED.key(7) == "booked:7"
+    assert Topic.FATAL.key("2026-09-26", "ConfigError", "") == "fatal:2026-09-26:ConfigError:"
+
+
+def test_every_skip_reason_has_a_topic_of_the_same_name():
+    assert {r.name for r in Reason} <= {t.name for t in Topic}
+
+
+def test_being_booked_already_is_the_only_skip_that_is_not_a_condition():
+    assert [r for r in Reason if not Topic[r.name].is_condition] == [Reason.BOOKED]

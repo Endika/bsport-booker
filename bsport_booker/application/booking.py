@@ -6,41 +6,15 @@ import datetime as dt
 import logging
 from collections.abc import Collection, Sequence
 from dataclasses import dataclass, field
-from enum import Enum
 
 from ..config import Config
 from ..domain.models import Pack
-from ..domain.policy import Book, Reason, Skip, decide, due, in_force, published_until, spend
+from ..domain.policy import Book, Skip, decide, due, in_force, published_until, spend
 from ..ports import BookingGateway, BsportError
 from . import messages
+from .memory import Topic
 
 log = logging.getLogger(__name__)
-
-
-class Condition(Enum):
-    """Something true right now: once it stops being true its key goes, so it can be said again."""
-
-    UNAVAILABLE = "unavailable"
-    FULL = "full"
-    NO_CREDITS = "nocredits"
-    ERROR = "error"
-    EMPTY = "empty"
-    LOW = "low"
-    NO_PACK = "nopack"
-
-    @property
-    def prefix(self) -> str:
-        return f"{self.value}:"
-
-    def key(self, *parts: object) -> str:
-        return self.prefix + ":".join(map(str, parts))
-
-
-SKIP_CONDITIONS = {
-    Reason.UNAVAILABLE: Condition.UNAVAILABLE,
-    Reason.FULL: Condition.FULL,
-    Reason.NO_CREDITS: Condition.NO_CREDITS,
-}
 
 
 @dataclass
@@ -53,13 +27,12 @@ class Report:
     published_until: dt.datetime | None = None
     failed: bool = False
 
-    def announce(self, key: str, text: str) -> None:
+    def note(self, topic: Topic, *parts: object, text: str) -> None:
+        key = topic.key(*parts)
+        if topic.is_condition:
+            self.seen.add(key)
         if key not in self.said:
             self.news.append((key, text))
-
-    def condition(self, key: str, text: str) -> None:
-        self.seen.add(key)
-        self.announce(key, text)
 
 
 def book_due(
@@ -97,9 +70,9 @@ def book_due(
 
 def _skip(report: Report, skip: Skip) -> None:
     report.lines.append(messages.skip_line(skip))
-    condition = SKIP_CONDITIONS.get(skip.reason)
-    if condition:
-        report.condition(condition.key(skip.offer.id), messages.skip_news(skip))
+    topic = Topic[skip.reason.name]
+    if topic.is_condition:
+        report.note(topic, skip.offer.id, text=messages.skip_news(skip))
 
 
 def _book(bsport: BookingGateway, report: Report, booking: Book) -> bool:
@@ -110,12 +83,10 @@ def _book(bsport: BookingGateway, report: Report, booking: Book) -> bool:
         log.error("booking %s failed: %s", offer.id, exc)
         report.failed = True
         report.lines.append(messages.failed_line(offer, exc))
-        report.condition(
-            Condition.ERROR.key(offer.id, exc.status), messages.failed_news(offer, exc)
-        )
+        report.note(Topic.ERROR, offer.id, exc.status, text=messages.failed_news(offer, exc))
         return False
     report.lines.append(messages.booked_line(offer))
-    report.announce(f"booked:{offer.id}", messages.booked_news(offer))
+    report.note(Topic.BOOKED, offer.id, text=messages.booked_news(offer))
     return True
 
 
@@ -124,8 +95,8 @@ def _credits(report: Report, packs: Sequence[Pack], today: dt.date, low: int) ->
     report.credits = messages.credits(live)
     for pack in live:
         if pack.credits == 0:
-            report.condition(Condition.EMPTY.key(pack.id), messages.empty(pack))
+            report.note(Topic.EMPTY, pack.id, text=messages.empty(pack))
         elif pack.credits is not None and pack.credits <= low:
-            report.condition(Condition.LOW.key(pack.id, pack.credits), messages.low(pack))
+            report.note(Topic.LOW, pack.id, pack.credits, text=messages.low(pack))
     if not live:
-        report.condition(Condition.NO_PACK.key(), messages.NO_PACK)
+        report.note(Topic.NO_PACK, text=messages.NO_PACK)
