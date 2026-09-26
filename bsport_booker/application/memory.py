@@ -4,11 +4,10 @@ from __future__ import annotations
 
 import datetime as dt
 
-from .booking import Report
+from .booking import Condition, Report
 
 FORGET_AFTER_DAYS = 120
-# Keys that describe a condition: once it stops being true the key goes, so it can be said again.
-CONDITIONS = ("unavailable:", "full:", "nocredits:", "error:", "empty:", "low:", "nopack:")
+CONDITIONS = tuple(c.prefix for c in Condition)
 
 
 def remember(

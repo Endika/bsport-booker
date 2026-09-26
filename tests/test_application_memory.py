@@ -1,7 +1,9 @@
 import datetime as dt
 from collections.abc import Iterable
 
-from bsport_booker.application.booking import Report
+import pytest
+
+from bsport_booker.application.booking import Condition, Report
 from bsport_booker.application.memory import FORGET_AFTER_DAYS, remember
 
 TODAY = dt.date(2026, 9, 26)
@@ -45,3 +47,17 @@ def test_anything_older_than_the_cutoff_is_pruned():
     state = {"booked:1": edge, "booked:2": older}
 
     assert remember(state, run(state), TODAY, announced=True) == {"booked:1": edge}
+
+
+@pytest.mark.parametrize("condition", list(Condition))
+def test_every_kind_of_condition_is_forgotten_once_it_is_no_longer_seen(condition):
+    key = condition.key(1)
+    state = {key: YESTERDAY}
+
+    assert remember(state, run(state), TODAY, announced=True) == {}
+    assert remember(state, run(state, seen={key}), TODAY, announced=True) == {key: "2026-09-26"}
+
+
+def test_condition_keys_keep_the_shape_of_existing_state_files():
+    assert Condition.NO_PACK.key() == "nopack:"
+    assert Condition.ERROR.key(12, 400) == "error:12:400"
