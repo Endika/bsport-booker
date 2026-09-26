@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import logging
 
-from ..ports import Transport
+from .http import Transport
 
 log = logging.getLogger(__name__)
 API = "https://slack.com/api/chat.postMessage"

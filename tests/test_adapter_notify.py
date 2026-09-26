@@ -1,5 +1,5 @@
+from bsport_booker.adapters.http import Response
 from bsport_booker.adapters.slack import API, Slack
-from bsport_booker.ports import Response
 
 from .fakes import Scripted, Unreachable, json_response
 

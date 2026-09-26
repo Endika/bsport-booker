@@ -9,7 +9,7 @@ from typing import Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from ...domain.models import Listing, Offer, Pack
-from ...ports import Response
+from ..http import Response
 
 Row = dict[str, Any]
 DEFAULT_TZ = ZoneInfo("Europe/Madrid")

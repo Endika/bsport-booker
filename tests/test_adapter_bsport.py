@@ -6,7 +6,8 @@ import pytest
 
 from bsport_booker.adapters.bsport import parsing
 from bsport_booker.adapters.bsport.http import API, LOGIN, MAX_PAGES, BsportGateway
-from bsport_booker.ports import BsportError, Response
+from bsport_booker.adapters.http import Response
+from bsport_booker.ports import BsportError
 
 from .fakes import COMPANY, ESTABLISHMENT, FakeBsport, Scripted, Unreachable, json_response
 

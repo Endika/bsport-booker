@@ -8,7 +8,8 @@ import urllib.parse
 from typing import Any
 
 from ...domain.models import Listing, Offer, Pack
-from ...ports import BsportError, Transport
+from ...ports import BsportError
+from ..http import Transport
 from . import parsing
 
 API = "https://api.production.bsport.io"

@@ -7,12 +7,12 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from .adapters.bsport.http import BsportGateway
-from .adapters.http import UrllibTransport
+from .adapters.http import Transport, UrllibTransport
 from .adapters.slack import Slack
 from .adapters.state import JsonFileState
 from .application.tick import Mode, Tick
 from .config import Config, ConfigError, load
-from .ports import Notifier, Transport
+from .ports import Notifier
 
 log = logging.getLogger(__name__)
 TZ = ZoneInfo("Europe/Madrid")

@@ -1,30 +1,13 @@
 """The boundaries the application talks to. Everything that knows about HTTP, Slack or
-JSON files lives behind them, in `adapters/`.
+files lives behind them, in `adapters/`.
 """
 
 from __future__ import annotations
 
 import datetime as dt
-from dataclasses import dataclass, field
 from typing import Protocol
 
 from .domain.models import Listing, Offer, Pack
-
-
-@dataclass(frozen=True)
-class Response:
-    status: int
-    body: bytes = b""
-    headers: dict[str, str] = field(default_factory=dict)
-
-    def text(self) -> str:
-        return self.body.decode("utf-8", "replace")
-
-
-class Transport(Protocol):
-    def request(
-        self, method: str, url: str, *, headers: dict[str, str], body: bytes | None = None
-    ) -> Response: ...
 
 
 class BsportError(Exception):
@@ -70,14 +53,3 @@ class StateStore(Protocol):
         ...
 
     def save(self, state: dict[str, str]) -> bool: ...
-
-
-__all__ = [
-    "BookingGateway",
-    "BsportError",
-    "Notifier",
-    "Response",
-    "StateError",
-    "StateStore",
-    "Transport",
-]

@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from bsport_booker.adapters.bsport.http import API, LOGIN
-from bsport_booker.ports import Response
+from bsport_booker.adapters.http import Response
 
 TOKEN = "tok-abc"
 MEMBER = 7
@@ -167,4 +167,4 @@ class Unreachable:
 
 
 def json_response(payload: Any, status: int = 200) -> Response:
-    return Response(status, json.dumps(payload).encode(), {"Content-Type": "application/json"})
+    return Response(status, json.dumps(payload).encode())
