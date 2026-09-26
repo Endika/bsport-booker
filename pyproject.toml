@@ -18,7 +18,10 @@ dev = ["pytest>=8", "ruff>=0.6", "mypy>=1.11"]
 bsport-booker = "bsport_booker.cli:main"
 
 [tool.setuptools]
-packages = ["bsport_booker"]
+packages = [
+    "bsport_booker",
+    "bsport_booker.domain",
+]
 
 [tool.ruff]
 line-length = 100

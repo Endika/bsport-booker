@@ -3,9 +3,10 @@ from __future__ import annotations
 import datetime as dt
 import re
 import tomllib
-import unicodedata
 from dataclasses import dataclass
 from pathlib import Path
+
+from .domain import Wanted, plain
 
 
 class ConfigError(Exception):
@@ -21,30 +22,6 @@ DAYS = {
     "sabado": 5, "saturday": 5,
     "domingo": 6, "sunday": 6,
 }  # fmt: skip
-
-
-def _plain(text: str) -> str:
-    folded = unicodedata.normalize("NFKD", text.casefold())
-    return "".join(c for c in folded if not unicodedata.combining(c)).strip()
-
-
-def same_class(a: str, b: str) -> bool:
-    return _plain(a) == _plain(b)
-
-
-@dataclass(frozen=True)
-class Wanted:
-    name: str
-    days: frozenset[int]
-    time: dt.time
-
-    def matches(self, name: str, start: dt.datetime) -> bool:
-        # `start` carries the studio's own offset, so its wall clock is the studio's.
-        return (
-            same_class(name, self.name)
-            and start.weekday() in self.days
-            and (start.hour, start.minute) == (self.time.hour, self.time.minute)
-        )
 
 
 @dataclass(frozen=True)
@@ -74,9 +51,9 @@ def _wanted(raw: dict[str, object], where: str) -> Wanted:
         raise ConfigError(f"{where}: `days` must be a non-empty list")
     days = set()
     for day in days_raw:
-        if _plain(str(day)) not in DAYS:
+        if plain(str(day)) not in DAYS:
             raise ConfigError(f"{where}: unknown day {day!r}")
-        days.add(DAYS[_plain(str(day))])
+        days.add(DAYS[plain(str(day))])
     time = str(raw.get("time", ""))
     if not re.fullmatch(r"\d{1,2}:\d{2}", time):
         raise ConfigError(f"{where}: `time` must look like 11:00")

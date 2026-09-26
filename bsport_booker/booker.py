@@ -10,9 +10,10 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Protocol
 
-from .client import BsportError, Offer, Pack
+from . import domain
+from .client import BsportError
 from .config import Config
-from .config import same_class as _same_class
+from .domain import Offer, Pack
 
 log = logging.getLogger(__name__)
 WEEKDAYS = ("lun", "mar", "mié", "jue", "vie", "sáb", "dom")
@@ -86,24 +87,8 @@ def when(start: dt.datetime) -> str:
     return f"{WEEKDAYS[start.weekday()]} {start:%d/%m %H:%M}"
 
 
-def _pay_with(packs: list[Pack], offer: Offer) -> Pack | None:
-    usable = [
-        p
-        for p in packs
-        if p.covers(offer.start.date())
-        and (p.credits is None or p.credits >= offer.credits)
-        and (p.credits is None or p.credits > 0)
-    ]
-    # The one that runs out first, so a pack never expires with credits left over.
-    return min(usable, key=lambda p: p.end, default=None)
-
-
 def _count(pack: Pack) -> str:
     return "ilimitados" if pack.credits is None else str(pack.credits)
-
-
-def _credit_lines(packs: list[Pack], today: dt.date) -> list[Pack]:
-    return sorted((p for p in packs if not p.disabled and p.end >= today), key=lambda p: p.start)
 
 
 def run(
@@ -121,11 +106,8 @@ def run(
         today,
         today + dt.timedelta(days=config.horizon_days),
     )
-    # How far your classes are published, whatever the day or hour: other activities may run
-    # much further ahead and say nothing about yours.
-    yours = [o.start for o in offers if any(_same_class(o.name, w.name) for w in config.classes)]
-    if yours:
-        last = max(yours)
+    last = domain.published_until(offers, config.classes)
+    if last:
         report.published_until = f"{WEEKDAYS[last.weekday()]} {last:%d/%m}"
 
     def news(key: str, text: str) -> None:
@@ -134,15 +116,7 @@ def run(
         if key not in state:
             report.news.append((key, text))
 
-    wanted = sorted(
-        (
-            o
-            for o in offers
-            if o.start > now and any(w.matches(o.name, o.start) for w in config.classes)
-        ),
-        key=lambda o: o.start,
-    )
-    for offer in wanted:
+    for offer in domain.due(offers, config.classes, now):
         label = f"{when(offer.start)} {offer.name.title()}"
         if offer.id in booked:
             report.lines.append(f"✅ {label}: reservada")
@@ -155,7 +129,7 @@ def run(
             report.lines.append(f"🚫 {label}: llena, sigo intentándolo")
             news(f"full:{offer.id}", f"🚫 {label}: está llena; la cojo si se libera una plaza")
             continue
-        pack = _pay_with(packs, offer)
+        pack = domain.pay_with(packs, offer)
         if pack is None:
             report.lines.append(f"⚠️ {label}: sin créditos para ese día")
             news(
@@ -174,14 +148,12 @@ def run(
             report.lines.append(f"❌ {label}: error al reservar ({exc})")
             news(f"error:{offer.id}:{exc.status}", f"❌ {label}: no he podido reservarla ({exc})")
             continue
-        if pack.credits is not None:
-            spent = Pack(pack.id, pack.start, pack.end, pack.credits - offer.credits, pack.disabled)
-            packs = [spent if p.id == pack.id else p for p in packs]
+        packs = domain.spend(packs, domain.Book(offer, pack))
         booked.add(offer.id)
         report.lines.append(f"🎉 {label}: reservada ahora")
         news(f"booked:{offer.id}", f"🎉 {label}: reservada")
 
-    live = _credit_lines(packs, today)
+    live = domain.in_force(packs, today)
     report.credits = "Créditos: " + (
         ", ".join(f"{_count(p)} (bono {p.start:%d/%m}–{p.end:%d/%m})" for p in live)
         if live

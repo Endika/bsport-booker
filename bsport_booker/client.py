@@ -5,10 +5,10 @@ from __future__ import annotations
 import datetime as dt
 import json
 import urllib.parse
-from dataclasses import dataclass
 from typing import Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
+from .domain import Offer, Pack
 from .http import Response, Transport
 
 API = "https://api.production.bsport.io"
@@ -22,28 +22,6 @@ class BsportError(Exception):
     def __init__(self, what: str, status: int, detail: str = "") -> None:
         super().__init__(f"{what}: HTTP {status} {detail}".rstrip())
         self.status = status
-
-
-@dataclass(frozen=True)
-class Offer:
-    id: int
-    name: str
-    start: dt.datetime
-    available: bool
-    full: bool
-    credits: int
-
-
-@dataclass(frozen=True)
-class Pack:
-    id: int
-    start: dt.date
-    end: dt.date
-    credits: int | None  # None: bsport keeps no count, the pack is unlimited
-    disabled: bool
-
-    def covers(self, day: dt.date) -> bool:
-        return not self.disabled and self.start <= day <= self.end
 
 
 def _local(stamp: str, zone: object) -> dt.datetime:
