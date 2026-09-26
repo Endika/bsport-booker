@@ -73,7 +73,7 @@ def book_due(
     report = Report(said=state)
     today = now.date()
     member = bsport.member_id()
-    packs = bsport.packs(member)
+    fetched = packs = bsport.packs(member)
     booked = bsport.booked_offers()
     last = today + dt.timedelta(days=config.horizon_days)
     offers = bsport.offers(config.company, config.establishment, today, last)
@@ -89,7 +89,8 @@ def book_due(
             continue
         packs = spend(packs, decision)
         booked.add(offer.id)
-    _credits(report, packs, today, config.low_credits)
+    # A look spends nothing for real, so its balance is the one bsport has.
+    _credits(report, fetched if dry_run else packs, today, config.low_credits)
     return report
 
 
