@@ -53,7 +53,7 @@ class Wanted:
 
 @dataclass(frozen=True)
 class Listing:
-    """A class in the studio's timetable, as `--discover` shows it."""
+    """A class in a studio's timetable, whoever it is for."""
 
     company: str
     activity: str

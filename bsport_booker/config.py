@@ -5,8 +5,12 @@ import re
 import tomllib
 from dataclasses import dataclass
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 from .domain.models import Wanted, plain
+
+# The clock the run goes by, and a studio's zone when bsport names none.
+TZ = ZoneInfo("Europe/Madrid")
 
 
 class ConfigError(Exception):

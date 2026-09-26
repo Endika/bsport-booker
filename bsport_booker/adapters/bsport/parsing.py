@@ -8,11 +8,11 @@ from collections.abc import Iterable
 from typing import Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
+from ...config import TZ
 from ...domain.models import Listing, Offer, Pack
 from ..http import Response
 
 Row = dict[str, Any]
-DEFAULT_TZ = ZoneInfo("Europe/Madrid")
 
 
 def local_start(stamp: str, zone: object) -> dt.datetime:
@@ -23,11 +23,11 @@ def local_start(stamp: str, zone: object) -> dt.datetime:
     except (ZoneInfoNotFoundError, ValueError):
         tz = None
     if start.tzinfo is None:
-        return start.replace(tzinfo=tz or DEFAULT_TZ)
+        return start.replace(tzinfo=tz or TZ)
     return start.astimezone(tz) if tz else start
 
 
-def _count(value: Any) -> int:
+def _number(value: Any) -> int:
     return int(float(value))
 
 
@@ -39,7 +39,7 @@ def offers(rows: Iterable[Row]) -> list[Offer]:
             start=local_start(o["date_start"], o.get("timezone_name")),
             available=bool(o.get("available")),
             full=bool(o.get("full")),
-            credits=_count(o.get("credit_price") or 0),
+            credits=_number(o.get("credit_price") or 0),
         )
         for o in rows
     ]
@@ -51,7 +51,7 @@ def packs(rows: Iterable[Row]) -> list[Pack]:
             id=int(p["id"]),
             start=dt.date.fromisoformat(p["starting_date"]),
             end=dt.date.fromisoformat(p["ending_date"]),
-            credits=None if p.get("available_credits") is None else _count(p["available_credits"]),
+            credits=None if p.get("available_credits") is None else _number(p["available_credits"]),
             disabled=bool(p.get("disabled")),
         )
         for p in rows

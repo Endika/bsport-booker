@@ -6,18 +6,16 @@ import logging
 import tempfile
 from functools import partial
 from pathlib import Path
-from zoneinfo import ZoneInfo
 
 from .adapters.bsport.http import BsportGateway
 from .adapters.http import Transport, UrllibTransport
 from .adapters.slack import Slack
 from .adapters.state import DailyMarker, JsonFileState
 from .application.tick import Mode, Tick
-from .config import Config, ConfigError, load, read_credentials
+from .config import TZ, Config, ConfigError, load, read_credentials
 from .ports import Notifier
 
 log = logging.getLogger(__name__)
-TZ = ZoneInfo("Europe/Madrid")
 
 
 def build_parser() -> argparse.ArgumentParser:
