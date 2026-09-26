@@ -4,6 +4,7 @@ import argparse
 import datetime as dt
 import logging
 import sys
+import tempfile
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -61,7 +62,7 @@ def main(
         report = booker.run(client, config, state, now=now, dry_run=looking)
     except Exception as exc:
         log.exception("run aborted")
-        # Cron runs this every half hour: one message a day per kind of failure is plenty.
+        # However often cron runs it, one message a day per kind of failure is plenty.
         kind = f"{type(exc).__name__}:{exc.status if isinstance(exc, BsportError) else ''}"
         key = f"fatal:{now:%Y-%m-%d}:{kind}"
         text = "\n".join([*notes, f"❌ bsport: no he podido mirar las clases. {exc or kind}"])
@@ -84,26 +85,33 @@ def main(
     for line in report.lines:
         log.info("%s", line)
     news = [*notes, *(text for _, text in report.news)]
-    # Without a state every run looks new, so a state that cannot be written may speak only in
-    # the one run a day at 08:00, instead of repeating itself every half hour.
+    # Without a state every run looks new, so a state that cannot be written may speak once a
+    # day, kept track of in the temp dir, instead of repeating itself on every run.
     writable = _save(config.state, state)
     if not writable:
         news.append(
-            f"❌ bsport: no puedo guardar {config.state}; hasta que se arregle, aviso a las 8."
+            f"❌ bsport: no puedo guardar {config.state}; aviso una vez al día hasta arreglarlo."
         )
     announced = True
     if news:
         text = "\n".join([*news, report.credits])
         print(text)
-        if writable or _morning(now):
+        if writable or _first_today(now):
             announced = say(text)
     booker.commit(state, report, now.date(), announced=announced)
     saved = writable and _save(config.state, state)
     return 0 if saved and announced and not report.failed else 1
 
 
-def _morning(now: dt.datetime) -> bool:
-    return now.hour == 8 and now.minute < 30
+def _first_today(now: dt.datetime) -> bool:
+    marker = Path(tempfile.gettempdir()) / f"bsport-booker-unsaved-{now:%Y%m%d}"
+    try:
+        marker.touch(exist_ok=False)
+    except FileExistsError:
+        return False
+    except OSError:
+        return True  # can't keep track anywhere: better noisy than silent
+    return True
 
 
 def _set_aside(path: Path, now: dt.datetime, exc: Exception) -> str:

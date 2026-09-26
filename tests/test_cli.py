@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import datetime as dt
+import tempfile
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -249,18 +250,21 @@ def test_a_corrupt_state_is_set_aside_once_and_booking_goes_on(home, bsport, jun
     ]
 
 
-def test_a_state_that_cannot_be_saved_speaks_only_at_eight(home, bsport):
+def test_a_state_that_cannot_be_saved_speaks_once_a_day(home, bsport, tmp_path, monkeypatch):
+    monkeypatch.setattr(tempfile, "tempdir", str(tmp_path / "tmp"))
+    (tmp_path / "tmp").mkdir()
     config = home / "config.toml"
     config.write_text('state = "missing/dir/state.json"\n' + config.read_text())
     bsport.pack(*SEPTEMBER, credits=5)
     bsport.offer("2026-09-30T11:00", full=True)
 
-    for minutes in range(0, 180, 30):  # 07:00 to 09:30
-        tick(home, bsport, now=NOW.replace(day=27, hour=7) + dt.timedelta(minutes=minutes))
+    for minutes in range(0, 180, 30):
+        tick(home, bsport, now=NOW.replace(day=27, hour=0) + dt.timedelta(minutes=minutes))
+    tick(home, bsport, now=NOW.replace(day=28, hour=0))
 
-    [message] = slack(bsport)
-    assert "no puedo guardar" in message
-    assert "está llena" in message
+    messages = slack(bsport)
+    assert len(messages) == 2
+    assert all("no puedo guardar" in m and "está llena" in m for m in messages)
 
 
 def test_news_that_slack_did_not_take_is_sent_again_next_run(home, bsport):
