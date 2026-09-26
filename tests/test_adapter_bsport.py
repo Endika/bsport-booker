@@ -4,8 +4,8 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from bsport_booker.adapters.bsport import BsportGateway, parsing
-from bsport_booker.adapters.bsport.http import API, LOGIN, MAX_PAGES
+from bsport_booker.adapters.bsport import parsing
+from bsport_booker.adapters.bsport.http import API, LOGIN, MAX_PAGES, BsportGateway
 from bsport_booker.ports import BsportError, Response
 
 from .fakes import COMPANY, ESTABLISHMENT, FakeBsport, Scripted, Unreachable, json_response

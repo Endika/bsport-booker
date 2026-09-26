@@ -8,7 +8,7 @@ from collections.abc import Iterable
 from typing import Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from ...domain import Listing, Offer, Pack
+from ...domain.models import Listing, Offer, Pack
 from ...ports import Response
 
 Row = dict[str, Any]

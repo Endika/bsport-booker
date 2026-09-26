@@ -8,7 +8,7 @@ import logging
 import os
 from pathlib import Path
 
-from ...ports import StateError
+from ..ports import StateError
 
 log = logging.getLogger(__name__)
 

@@ -6,7 +6,8 @@ import datetime as dt
 from collections.abc import Sequence
 from pathlib import Path
 
-from ..domain import Book, Listing, Offer, Pack, Reason, Skip
+from ..domain.models import Listing, Offer, Pack
+from ..domain.policy import Book, Reason, Skip
 
 WEEKDAYS = ("lun", "mar", "mié", "jue", "vie", "sáb", "dom")
 DRY_RUN = "(simulado, no se ha reservado nada)\n"

@@ -1,5 +1,4 @@
-from bsport_booker.adapters.notify import Slack
-from bsport_booker.adapters.notify.slack import API
+from bsport_booker.adapters.slack import API, Slack
 from bsport_booker.ports import Response
 
 from .fakes import Scripted, Unreachable, json_response

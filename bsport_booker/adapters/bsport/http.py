@@ -7,7 +7,7 @@ import json
 import urllib.parse
 from typing import Any
 
-from ...domain import Listing, Offer, Pack
+from ...domain.models import Listing, Offer, Pack
 from ...ports import BsportError, Transport
 from . import parsing
 

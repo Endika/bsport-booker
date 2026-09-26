@@ -6,7 +6,7 @@ import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 
-from .domain import Wanted, plain
+from .domain.models import Wanted, plain
 
 
 class ConfigError(Exception):

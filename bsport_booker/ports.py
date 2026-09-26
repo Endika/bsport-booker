@@ -8,7 +8,7 @@ import datetime as dt
 from dataclasses import dataclass, field
 from typing import Protocol
 
-from ..domain import Listing, Offer, Pack
+from .domain.models import Listing, Offer, Pack
 
 
 @dataclass(frozen=True)
