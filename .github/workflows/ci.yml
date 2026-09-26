@@ -1,0 +1,64 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gates:
+    name: gates (py${{ matrix.python }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # 3.11 is what the Raspberry Pi runs; the rest so we do not fall behind.
+        python: ["3.11", "3.12", "3.13"]
+    env:
+      UV_PYTHON: ${{ matrix.python }}
+      RUFF_OUTPUT_FORMAT: github
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+
+      - run: make install
+
+      - name: lint
+        run: make lint
+
+      - name: format
+        run: make format-check
+
+      - name: types
+        run: make types
+
+      - name: tests
+        run: make test
+
+  all-green:
+    # The only check to require in branch protection: requiring a matrix job by name
+    # means adding a Python version silently leaves that one unguarded.
+    name: all-green
+    if: always()
+    needs: [gates]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check that no gate failed
+        run: |
+          echo "results: ${{ join(needs.*.result, ', ') }}"
+          if ${{ contains(needs.*.result, 'failure')
+                 || contains(needs.*.result, 'cancelled')
+                 || contains(needs.*.result, 'skipped') }}; then
+            echo "::error::a gate did not pass"
+            exit 1
+          fi

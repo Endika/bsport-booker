@@ -1,0 +1,24 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  please:
+    name: release-please
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: googleapis/release-please-action@v5
+        with:
+          # With GITHUB_TOKEN the release pull request is authored by the bot, and
+          # GitHub fires no `pull_request` workflows for it — the required checks
+          # sit at "action_required" forever and auto-merge can never proceed.
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN || secrets.GITHUB_TOKEN }}

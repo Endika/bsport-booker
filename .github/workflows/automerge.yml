@@ -1,0 +1,42 @@
+name: Auto-merge
+
+on: pull_request_target
+
+permissions:
+  contents: read
+
+# Neither job ever checks out the pull request's code, so running with
+# `pull_request_target` (and therefore with access to secrets) stays safe.
+
+jobs:
+  dependabot:
+    name: auto-merge dependabot
+    if: github.actor == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - id: meta
+        uses: dependabot/fetch-metadata@v3
+      # The PAT, not GITHUB_TOKEN: a merge authored by GITHUB_TOKEN is a push that
+      # triggers no workflow at all, so the bump would land on main without CI ever
+      # running against the result.
+      - if: steps.meta.outputs.update-type == 'version-update:semver-minor' || steps.meta.outputs.update-type == 'version-update:semver-patch'
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: gh pr merge --rebase --auto "$PR_URL"
+
+  release:
+    name: auto-merge release-please
+    if: startsWith(github.event.pull_request.head.ref, 'release-please--')
+    runs-on: ubuntu-latest
+    steps:
+      # Same PAT for the same reason: signed by GITHUB_TOKEN, the merge would push a
+      # commit that triggers no Release run, so the tag would never be cut.
+      - name: queue the merge behind the required checks
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+        run: gh pr merge --auto --rebase "$PR_URL"
