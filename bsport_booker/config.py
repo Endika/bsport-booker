@@ -1,0 +1,124 @@
+from __future__ import annotations
+
+import datetime as dt
+import re
+import tomllib
+import unicodedata
+from dataclasses import dataclass
+from pathlib import Path
+
+
+class ConfigError(Exception):
+    pass
+
+
+DAYS = {
+    "lunes": 0, "monday": 0,
+    "martes": 1, "tuesday": 1,
+    "miercoles": 2, "wednesday": 2,
+    "jueves": 3, "thursday": 3,
+    "viernes": 4, "friday": 4,
+    "sabado": 5, "saturday": 5,
+    "domingo": 6, "sunday": 6,
+}  # fmt: skip
+
+
+def _plain(text: str) -> str:
+    folded = unicodedata.normalize("NFKD", text.casefold())
+    return "".join(c for c in folded if not unicodedata.combining(c)).strip()
+
+
+@dataclass(frozen=True)
+class Wanted:
+    name: str
+    days: frozenset[int]
+    time: dt.time
+
+    def matches(self, name: str, start: dt.datetime) -> bool:
+        # `start` carries the studio's own offset, so its wall clock is the studio's.
+        return (
+            _plain(name) == _plain(self.name)
+            and start.weekday() in self.days
+            and (start.hour, start.minute) == (self.time.hour, self.time.minute)
+        )
+
+
+@dataclass(frozen=True)
+class Config:
+    company: int
+    establishment: int
+    classes: tuple[Wanted, ...]
+    horizon_days: int
+    low_credits: int
+    credentials: Path
+    state: Path
+    slack_token: str
+    slack_channel: str
+
+
+def _here(base: Path, value: str) -> Path:
+    path = Path(value).expanduser()
+    return path if path.is_absolute() else base / path
+
+
+def _wanted(raw: dict[str, object], where: str) -> Wanted:
+    name = str(raw.get("name", "")).strip()
+    if not name:
+        raise ConfigError(f"{where}: `name` is required")
+    days_raw = raw.get("days")
+    if not isinstance(days_raw, list) or not days_raw:
+        raise ConfigError(f"{where}: `days` must be a non-empty list")
+    days = set()
+    for day in days_raw:
+        if _plain(str(day)) not in DAYS:
+            raise ConfigError(f"{where}: unknown day {day!r}")
+        days.add(DAYS[_plain(str(day))])
+    time = str(raw.get("time", ""))
+    if not re.fullmatch(r"\d{1,2}:\d{2}", time):
+        raise ConfigError(f"{where}: `time` must look like 11:00")
+    try:
+        at = dt.time.fromisoformat(time.zfill(5))
+    except ValueError as exc:
+        raise ConfigError(f"{where}: {exc}") from exc
+    return Wanted(name, frozenset(days), at)
+
+
+def load(path: Path) -> Config:
+    try:
+        raw = tomllib.loads(path.read_text())
+    except (OSError, tomllib.TOMLDecodeError) as exc:
+        raise ConfigError(f"{path}: {exc}") from exc
+    base = path.parent
+    try:
+        company, establishment = int(raw["company"]), int(raw["establishment"])
+    except (KeyError, TypeError, ValueError) as exc:
+        raise ConfigError(f"{path}: `company` and `establishment` must be numbers") from exc
+    classes = tuple(
+        _wanted(c, f"{path} [[class]] #{i + 1}") for i, c in enumerate(raw.get("class", []))
+    )
+    if not classes:
+        raise ConfigError(f"{path}: add at least one [[class]]")
+    slack = raw.get("slack", {})
+    return Config(
+        company=company,
+        establishment=establishment,
+        classes=classes,
+        horizon_days=int(raw.get("horizon_days", 60)),
+        low_credits=int(raw.get("low_credits", 2)),
+        credentials=_here(base, str(raw.get("credentials", "credentials"))),
+        state=_here(base, str(raw.get("state", "state.json"))),
+        slack_token=str(slack.get("token", "")),
+        slack_channel=str(slack.get("channel", "")),
+    )
+
+
+def read_credentials(path: Path) -> tuple[str, str]:
+    try:
+        lines = path.read_text().splitlines()
+    except OSError as exc:
+        raise ConfigError(f"credentials: {exc}") from exc
+    pairs = dict(line.split("=", 1) for line in lines if "=" in line)
+    email, password = pairs.get("email", "").strip(), pairs.get("password", "")
+    if not email or not password:
+        raise ConfigError(f"{path}: needs `email=` and `password=` lines")
+    return email, password

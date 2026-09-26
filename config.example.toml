@@ -1,0 +1,22 @@
+# Copy to ~/.config/bsport/config.toml. Relative paths are relative to this file.
+# Find your company and establishment ids with `--discover`.
+company = 1234
+establishment = 5678
+horizon_days = 60      # how far ahead to look for published classes
+low_credits = 2        # warn when a pack is down to this many credits
+credentials = "credentials"  # email=... and password=..., chmod 600
+state = "state.json"
+
+[[class]]
+name = "Functional training"   # as the studio names the activity; case and accents don't matter
+days = ["lunes", "miércoles", "viernes"]
+time = "11:00"
+
+# [[class]]
+# name = "Pilates"
+# days = ["martes"]
+# time = "19:30"
+
+[slack]
+token = "xoxb-..."
+channel = "C0123456789"
