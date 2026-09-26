@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import logging
+import tempfile
 from functools import partial
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -10,7 +11,7 @@ from zoneinfo import ZoneInfo
 from .adapters.bsport.http import BsportGateway
 from .adapters.http import Transport, UrllibTransport
 from .adapters.slack import Slack
-from .adapters.state import JsonFileState
+from .adapters.state import DailyMarker, JsonFileState
 from .application.tick import Mode, Tick
 from .config import Config, ConfigError, load, read_credentials
 from .ports import Notifier
@@ -49,6 +50,7 @@ def main(
         bsport=BsportGateway(http, partial(read_credentials, config.credentials)),
         notifier=None if args.dry_run else _slack(http, config),
         store=JsonFileState(config.state),
+        unsaved_gate=DailyMarker(Path(tempfile.gettempdir())),
         config=config,
         now=now or dt.datetime.now(TZ),
     )

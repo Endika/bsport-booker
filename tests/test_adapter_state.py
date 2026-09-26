@@ -3,7 +3,7 @@ import json
 
 import pytest
 
-from bsport_booker.adapters.state import JsonFileState
+from bsport_booker.adapters.state import DailyMarker, JsonFileState
 from bsport_booker.ports import StateError
 
 NOW = dt.datetime(2026, 9, 26, 21, 0)
@@ -58,3 +58,18 @@ def test_a_state_that_cannot_be_written_is_reported_not_raised(tmp_path, caplog)
     assert not JsonFileState(tmp_path / "missing" / "state.json").save({})
 
     assert "could not save state" in caplog.text
+
+
+def test_the_daily_marker_opens_once_a_day(tmp_path):
+    marker = DailyMarker(tmp_path)
+    today = NOW.date()
+
+    assert [marker.first_today(today), marker.first_today(today)] == [True, False]
+    assert marker.first_today(today + dt.timedelta(days=1))
+
+
+def test_a_marker_that_cannot_be_kept_lets_every_warning_through(tmp_path):
+    marker = DailyMarker(tmp_path / "missing")
+
+    assert marker.first_today(NOW.date())
+    assert marker.first_today(NOW.date())

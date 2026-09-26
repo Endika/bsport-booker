@@ -4,13 +4,11 @@ from __future__ import annotations
 
 import datetime as dt
 import logging
-import tempfile
 from dataclasses import dataclass
 from enum import Enum, auto
-from pathlib import Path
 
 from ..config import Config
-from ..ports import BookingGateway, BsportError, Notifier, StateError, StateStore
+from ..ports import BookingGateway, BsportError, DailyGate, Notifier, StateError, StateStore
 from . import messages
 from .booking import Report, book_due
 from .discover import discover
@@ -31,6 +29,7 @@ class Tick:
     bsport: BookingGateway
     notifier: Notifier | None  # None: nobody to tell
     store: StateStore
+    unsaved_gate: DailyGate
     config: Config
     now: dt.datetime
 
@@ -97,7 +96,7 @@ class Tick:
         if news:
             text = messages.news(news, report.credits)
             print(text)
-            if writable or _first_today(self.now):
+            if writable or self.unsaved_gate.first_today(self.now.date()):
                 announced = self._tell(text)
         state = remember(state, report, self.now.date(), announced=announced)
         saved = writable and self.store.save(state)
@@ -105,14 +104,3 @@ class Tick:
 
     def _tell(self, text: str) -> bool:
         return self.notifier is None or self.notifier.send(text)
-
-
-def _first_today(now: dt.datetime) -> bool:
-    marker = Path(tempfile.gettempdir()) / f"bsport-booker-unsaved-{now:%Y%m%d}"
-    try:
-        marker.touch(exist_ok=False)
-    except FileExistsError:
-        return False
-    except OSError:
-        return True  # can't keep track anywhere: better noisy than silent
-    return True

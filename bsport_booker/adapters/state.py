@@ -1,4 +1,4 @@
-"""The state as a JSON file, written through a temp file and fsync."""
+"""The state as a JSON file written through a temp file and fsync, and a daily marker."""
 
 from __future__ import annotations
 
@@ -51,3 +51,20 @@ class JsonFileState:
             out.flush()
             os.fsync(out.fileno())
         tmp.replace(self._path)
+
+
+class DailyMarker:
+    """A file per day, outside the state's directory: it has to work when that one doesn't."""
+
+    def __init__(self, directory: Path) -> None:
+        self._directory = directory
+
+    def first_today(self, day: dt.date) -> bool:
+        marker = self._directory / f"bsport-booker-unsaved-{day:%Y%m%d}"
+        try:
+            marker.touch(exist_ok=False)
+        except FileExistsError:
+            return False
+        except OSError:
+            return True  # can't keep track anywhere: better noisy than silent
+        return True

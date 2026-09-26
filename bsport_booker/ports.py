@@ -53,3 +53,9 @@ class StateStore(Protocol):
         ...
 
     def save(self, state: dict[str, str]) -> bool: ...
+
+
+class DailyGate(Protocol):
+    def first_today(self, day: dt.date) -> bool:
+        """True the first time it is asked on `day`, False after that."""
+        ...
