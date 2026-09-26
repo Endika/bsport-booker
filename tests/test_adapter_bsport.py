@@ -17,8 +17,8 @@ OCTOBER = (dt.date(2026, 10, 1), dt.date(2026, 10, 31))
 
 
 def logged_in(transport: FakeBsport | Scripted) -> BsportGateway:
-    gateway = BsportGateway(transport)
-    gateway.login("me@example.org", "s3cret")
+    gateway = BsportGateway(transport, lambda: ("me@example.org", "s3cret"))
+    gateway.login()
     return gateway
 
 
@@ -186,14 +186,16 @@ def test_an_http_error_carries_its_status_and_what_bsport_said():
 
 def test_a_network_failure_is_a_bsport_error_with_status_zero():
     with pytest.raises(BsportError, match="login: HTTP 0 network: timed out") as caught:
-        BsportGateway(Unreachable()).login("me@example.org", "s3cret")
+        BsportGateway(Unreachable(), lambda: ("me@example.org", "s3cret")).login()
 
     assert caught.value.status == 0
 
 
 def test_a_login_answer_without_a_token_raises():
     with pytest.raises(BsportError, match="no token"):
-        BsportGateway(Scripted({LOGIN: json_response({"detail": "ok"})})).login("a", "b")
+        BsportGateway(
+            Scripted({LOGIN: json_response({"detail": "ok"})}), lambda: ("a", "b")
+        ).login()
 
 
 def test_every_call_after_login_carries_the_token():

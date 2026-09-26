@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from enum import Enum, auto
 from pathlib import Path
 
-from ..config import Config, read_credentials
+from ..config import Config
 from ..ports import BookingGateway, BsportError, Notifier, StateError, StateStore
 from . import messages
 from .booking import Report, book_due
@@ -37,12 +37,11 @@ class Tick:
     def run(self, mode: Mode) -> bool:
         state, notes = self._recall(mode)
         try:
-            email, password = read_credentials(self.config.credentials)
             if mode is Mode.DISCOVER:
                 for note in notes:
                     print(note)
-                return discover(self.bsport, email, password, self.now.date())
-            self.bsport.login(email, password)
+                return discover(self.bsport, self.now.date())
+            self.bsport.login()
             report = book_due(
                 self.bsport, self.config, state, now=self.now, dry_run=mode is not Mode.BOOK
             )

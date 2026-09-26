@@ -10,9 +10,9 @@ from . import messages
 LOOKAHEAD = dt.timedelta(days=14)
 
 
-def discover(bsport: BookingGateway, email: str, password: str, today: dt.date) -> bool:
+def discover(bsport: BookingGateway, today: dt.date) -> bool:
     try:
-        bsport.login(email, password)
+        bsport.login()
         studios = bsport.studios()
         if not studios:
             print(messages.NO_STUDIOS)

@@ -5,6 +5,7 @@ from __future__ import annotations
 import datetime as dt
 import json
 import urllib.parse
+from collections.abc import Callable
 from typing import Any
 
 from ...domain.models import Listing, Offer, Pack
@@ -20,11 +21,13 @@ MAX_PAGES = 20
 
 
 class BsportGateway:
-    def __init__(self, transport: Transport) -> None:
+    def __init__(self, transport: Transport, credentials: Callable[[], tuple[str, str]]) -> None:
         self._http = transport
+        self._credentials = credentials
         self._token = ""
 
-    def login(self, email: str, password: str) -> None:
+    def login(self) -> None:
+        email, password = self._credentials()
         res = self._call("login", "POST", LOGIN, {"email": email, "password": password})
         token = res.get("token") if isinstance(res, dict) else None
         if not token:
