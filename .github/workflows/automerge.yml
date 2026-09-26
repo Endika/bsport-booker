@@ -11,7 +11,10 @@ permissions:
 jobs:
   dependabot:
     name: auto-merge dependabot
-    if: github.actor == 'dependabot[bot]'
+    # The author and the head repo, not the actor: anyone can re-run a job or push from a fork.
+    if: >-
+      github.event.pull_request.user.login == 'dependabot[bot]'
+      && github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -30,7 +33,10 @@ jobs:
 
   release:
     name: auto-merge release-please
-    if: startsWith(github.event.pull_request.head.ref, 'release-please--')
+    if: >-
+      startsWith(github.event.pull_request.head.ref, 'release-please--')
+      && github.event.pull_request.head.repo.full_name == github.repository
+      && github.event.pull_request.user.login == github.repository_owner
     runs-on: ubuntu-latest
     steps:
       # Same PAT for the same reason: signed by GITHUB_TOKEN, the merge would push a
