@@ -168,3 +168,12 @@ class Unreachable:
 
 def json_response(payload: Any, status: int = 200) -> Response:
     return Response(status, json.dumps(payload).encode())
+
+
+@dataclass
+class Recorder:
+    sent: list[str] = field(default_factory=list)
+
+    def send(self, text: str) -> bool:
+        self.sent.append(text)
+        return True

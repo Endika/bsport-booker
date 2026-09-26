@@ -25,7 +25,14 @@ class Mode(Enum):
 
 
 @dataclass(frozen=True)
+class Outcome:
+    ok: bool
+    text: str = ""  # for the terminal and the log; empty when there is nothing to say
+
+
+@dataclass(frozen=True)
 class Tick:
+    mode: Mode
     bsport: BookingGateway
     notifier: Notifier | None  # None: nobody to tell
     store: StateStore
@@ -33,74 +40,72 @@ class Tick:
     config: Config
     now: dt.datetime
 
-    def run(self, mode: Mode) -> bool:
-        state, notes = self._recall(mode)
+    @property
+    def looking(self) -> bool:
+        return self.mode is not Mode.BOOK
+
+    def run(self) -> Outcome:
+        state, notes = self._recall()
         try:
-            if mode is Mode.DISCOVER:
-                for note in notes:
-                    print(note)
-                return discover(self.bsport, self.now.date())
+            if self.mode is Mode.DISCOVER:
+                ok, found = discover(self.bsport, self.now.date())
+                return Outcome(ok, "\n".join([*notes, *found]))
             self.bsport.login()
-            report = book_due(
-                self.bsport, self.config, state, now=self.now, dry_run=mode is not Mode.BOOK
-            )
+            report = book_due(self.bsport, self.config, state, now=self.now, dry_run=self.looking)
         except Exception as exc:
             log.exception("run aborted")
-            self._fatal(exc, notes, state, looking=mode is not Mode.BOOK)
-            return False
-        if mode is Mode.BOOK:
-            return self._announce(report, notes, state)
-        return self._show(report, notes, mode)
+            return Outcome(False, self._fatal(exc, notes, state))
+        if self.looking:
+            return self._show(report, notes)
+        return self._announce(report, notes, state)
 
-    def _recall(self, mode: Mode) -> tuple[dict[str, str], list[str]]:
+    def _recall(self) -> tuple[dict[str, str], list[str]]:
         try:
             return self.store.load(), []
         except StateError as exc:
             # Only a real run owns the state: a look leaves the evidence where it is.
-            if mode is not Mode.BOOK:
+            if self.looking:
                 return {}, [messages.unreadable(self.config.state, exc)]
             moved = self.store.set_aside(self.now)
             return {}, [messages.set_aside(self.config.state, exc, moved)]
 
-    def _fatal(
-        self, exc: Exception, notes: list[str], state: dict[str, str], *, looking: bool
-    ) -> None:
+    def _fatal(self, exc: Exception, notes: list[str], state: dict[str, str]) -> str:
         # However often cron runs it, one message a day per kind of failure is plenty.
         kind = f"{type(exc).__name__}:{exc.status if isinstance(exc, BsportError) else ''}"
         key = f"fatal:{self.now:%Y-%m-%d}:{kind}"
         text = messages.fatal(notes, exc)
-        print(text)
-        if looking:
+        if self.looking:
             self._tell(text)
         elif key not in state and self._tell(text):
             self.store.save({**state, key: self.now.date().isoformat()})
+        return text
 
-    def _show(self, report: Report, notes: list[str], mode: Mode) -> bool:
+    def _show(self, report: Report, notes: list[str]) -> Outcome:
         picture = messages.picture(report.lines, report.credits, report.published_until)
         text = "\n".join([*notes, picture])
-        print((messages.DRY_RUN if mode is Mode.DRY_RUN else "") + text)
-        if mode is Mode.STATUS:
+        if self.mode is Mode.STATUS:
             self._tell(text)
-        return not report.failed
+        banner = messages.DRY_RUN if self.mode is Mode.DRY_RUN else ""
+        return Outcome(not report.failed, banner + text)
 
-    def _announce(self, report: Report, notes: list[str], state: dict[str, str]) -> bool:
+    def _announce(self, report: Report, notes: list[str], state: dict[str, str]) -> Outcome:
         for line in report.lines:
             log.info("%s", line)
         news = [*notes, *(text for _, text in report.news)]
         # Without a state every run looks new, so a state that cannot be written may speak once
-        # a day, kept track of in the temp dir, instead of repeating itself on every run.
+        # a day, by the unsaved gate, instead of repeating itself on every run.
         writable = self.store.save(state)
         if not writable:
             news.append(messages.unsaved(self.config.state))
         announced = True
-        if news:
-            text = messages.news(news, report.credits)
-            print(text)
-            if writable or self.unsaved_gate.first_today(self.now.date()):
-                announced = self._tell(text)
+        text = messages.news(news, report.credits) if news else ""
+        if news and (writable or self.unsaved_gate.first_today(self.now.date())):
+            announced = self._tell(text)
         state = remember(state, report, self.now.date(), announced=announced)
         saved = writable and self.store.save(state)
-        return saved and announced and not report.failed
+        return Outcome(saved and announced and not report.failed, text)
 
     def _tell(self, text: str) -> bool:
-        return self.notifier is None or self.notifier.send(text)
+        if self.mode is Mode.DRY_RUN or self.notifier is None:
+            return True
+        return self.notifier.send(text)

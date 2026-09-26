@@ -10,17 +10,17 @@ from . import messages
 LOOKAHEAD = dt.timedelta(days=14)
 
 
-def discover(bsport: BookingGateway, today: dt.date) -> bool:
+def discover(bsport: BookingGateway, today: dt.date) -> tuple[bool, list[str]]:
+    """Whether it worked, and what to show."""
+    found: list[str] = []
     try:
         bsport.login()
         studios = bsport.studios()
         if not studios:
-            print(messages.NO_STUDIOS)
-            return False
+            return False, [messages.NO_STUDIOS]
         for establishment, title in sorted(studios.items()):
             listings = bsport.timetable(establishment, today, today + LOOKAHEAD)
-            print(messages.studio(title, establishment, listings))
+            found.append(messages.studio(title, establishment, listings))
     except (BsportError, KeyError, ValueError) as exc:
-        print(messages.discover_failed(exc))
-        return False
-    return True
+        return False, [*found, messages.discover_failed(exc)]
+    return True, found

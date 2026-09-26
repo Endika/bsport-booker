@@ -47,14 +47,18 @@ def main(
 
     http = transport or UrllibTransport()
     tick = Tick(
+        mode=_mode(args),
         bsport=BsportGateway(http, partial(read_credentials, config.credentials)),
-        notifier=None if args.dry_run else _slack(http, config),
+        notifier=_slack(http, config),
         store=JsonFileState(config.state),
         unsaved_gate=DailyMarker(Path(tempfile.gettempdir())),
         config=config,
         now=now or dt.datetime.now(TZ),
     )
-    return 0 if tick.run(_mode(args)) else 1
+    outcome = tick.run()
+    if outcome.text:
+        print(outcome.text)
+    return 0 if outcome.ok else 1
 
 
 def _slack(http: Transport, config: Config) -> Notifier | None:
