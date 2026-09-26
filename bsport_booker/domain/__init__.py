@@ -3,7 +3,7 @@
 No network, no files, no clock, no wording.
 """
 
-from .models import Offer, Pack, Wanted, plain, same_class
+from .models import Listing, Offer, Pack, Wanted, plain, same_class
 from .policy import (
     Book,
     Decision,
@@ -20,6 +20,7 @@ from .policy import (
 __all__ = [
     "Book",
     "Decision",
+    "Listing",
     "Offer",
     "Pack",
     "Reason",

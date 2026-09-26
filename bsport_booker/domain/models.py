@@ -49,3 +49,12 @@ class Wanted:
             and start.weekday() in self.days
             and (start.hour, start.minute) == (self.time.hour, self.time.minute)
         )
+
+
+@dataclass(frozen=True)
+class Listing:
+    """A class in the studio's timetable, as `--discover` shows it."""
+
+    company: str
+    activity: str
+    start: dt.datetime

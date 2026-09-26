@@ -9,8 +9,8 @@ import urllib.parse
 from dataclasses import dataclass, field
 from typing import Any
 
-from bsport_booker.client import API, LOGIN
-from bsport_booker.http import Response
+from bsport_booker.adapters.bsport.http import API, LOGIN
+from bsport_booker.ports import Response
 
 TOKEN = "tok-abc"
 MEMBER = 7

@@ -8,10 +8,13 @@ import tempfile
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-from . import booker, slack
-from .client import Bsport, BsportError
+from . import booker
+from .adapters.bsport import BsportGateway
+from .adapters.http import UrllibTransport
+from .adapters.notify import Slack
+from .adapters.state import JsonFileState
 from .config import ConfigError, load, read_credentials
-from .http import Transport, UrllibTransport
+from .ports import BsportError, StateError, Transport
 
 log = logging.getLogger("bsport_booker")
 TZ = ZoneInfo("Europe/Madrid")
@@ -43,17 +46,22 @@ def main(
     http = transport or UrllibTransport()
     looking = args.dry_run or args.status or args.discover
 
-    def say(text: str) -> bool:
-        return _say(http, config.slack_token, config.slack_channel, text, quiet=args.dry_run)
+    slack = Slack(http, config.slack_token, config.slack_channel)
 
+    def say(text: str) -> bool:
+        if args.dry_run or not (config.slack_token and config.slack_channel):
+            return True
+        return slack.send(text)
+
+    store = JsonFileState(config.state)
     notes: list[str] = []
     try:
-        state = booker.load_state(config.state)
-    except booker.StateError as exc:
+        state = store.load()
+    except StateError as exc:
         state = {}
-        notes.append(_set_aside(config.state, now, exc))
+        notes.append(_set_aside(store, config.state, now, exc))
 
-    client = Bsport(http)
+    client = BsportGateway(http)
     try:
         email, password = read_credentials(config.credentials)
         if args.discover:
@@ -69,7 +77,7 @@ def main(
         print(text)
         if (key not in state or looking) and say(text) and not looking:
             state[key] = now.date().isoformat()
-            _save(config.state, state)
+            store.save(state)
         return 1
 
     if looking:
@@ -87,7 +95,7 @@ def main(
     news = [*notes, *(text for _, text in report.news)]
     # Without a state every run looks new, so a state that cannot be written may speak once a
     # day, kept track of in the temp dir, instead of repeating itself on every run.
-    writable = _save(config.state, state)
+    writable = store.save(state)
     if not writable:
         news.append(
             f"❌ bsport: no puedo guardar {config.state}; aviso una vez al día hasta arreglarlo."
@@ -99,7 +107,7 @@ def main(
         if writable or _first_today(now):
             announced = say(text)
     booker.commit(state, report, now.date(), announced=announced)
-    saved = writable and _save(config.state, state)
+    saved = writable and store.save(state)
     return 0 if saved and announced and not report.failed else 1
 
 
@@ -114,16 +122,14 @@ def _first_today(now: dt.datetime) -> bool:
     return True
 
 
-def _set_aside(path: Path, now: dt.datetime, exc: Exception) -> str:
-    corrupt = path.with_name(f"{path.name}.corrupt-{now:%Y%m%d%H%M}")
-    try:
-        path.replace(corrupt)
-    except OSError:
+def _set_aside(store: JsonFileState, path: Path, now: dt.datetime, exc: Exception) -> str:
+    moved = store.set_aside(now)
+    if moved is None:
         return f"❌ bsport: {path} no se puede leer ({exc}) ni apartar; empiezo sin memoria."
-    return f"⚠️ bsport: {path} estaba corrupto ({exc}); lo he apartado a {corrupt.name}."
+    return f"⚠️ bsport: {path} estaba corrupto ({exc}); lo he apartado a {moved}."
 
 
-def _discover(client: Bsport, email: str, password: str, today: dt.date) -> int:
+def _discover(client: BsportGateway, email: str, password: str, today: dt.date) -> int:
     try:
         client.login(email, password)
         studios = client.studios()
@@ -131,14 +137,13 @@ def _discover(client: Bsport, email: str, password: str, today: dt.date) -> int:
             print("No upcoming bookings, so bsport won't say which studios are yours. Book one.")
             return 1
         for establishment, title in sorted(studios.items()):
-            offers = client.raw_offers(establishment, today, today + dt.timedelta(days=14))
-            company = next((o.get("company") for o in offers if o.get("company")), "?")
+            listings = client.timetable(establishment, today, today + dt.timedelta(days=14))
+            company = next((x.company for x in listings if x.company), "?")
             print(f"{title}\n  company = {company}\n  establishment = {establishment}")
             slots: dict[str, set[str]] = {}
-            for o in offers:
-                start = dt.datetime.fromisoformat(o["date_start"])
-                slot = f"{booker.WEEKDAYS[start.weekday()]} {start:%H:%M}"
-                slots.setdefault(str(o.get("activity_name") or "?"), set()).add(slot)
+            for x in listings:
+                slot = f"{booker.WEEKDAYS[x.start.weekday()]} {x.start:%H:%M}"
+                slots.setdefault(x.activity or "?", set()).add(slot)
             for name, times in sorted(slots.items()):
                 print(f"  {name}: {', '.join(sorted(times, key=_slot_order))}")
     except (BsportError, KeyError, ValueError) as exc:
@@ -150,21 +155,6 @@ def _discover(client: Bsport, email: str, password: str, today: dt.date) -> int:
 def _slot_order(slot: str) -> tuple[int, str]:
     day, time = slot.split(" ")
     return booker.WEEKDAYS.index(day), time
-
-
-def _say(http: Transport, token: str, channel: str, text: str, *, quiet: bool = False) -> bool:
-    if quiet or not (token and channel):
-        return True
-    return slack.send(http, token, channel, text)
-
-
-def _save(path: Path, state: dict[str, str]) -> bool:
-    try:
-        booker.save_state(path, state)
-    except OSError as exc:
-        log.error("could not save state: %s", exc)
-        return False
-    return True
 
 
 if __name__ == "__main__":

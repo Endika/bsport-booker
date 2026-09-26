@@ -3,31 +3,17 @@
 from __future__ import annotations
 
 import datetime as dt
-import json
 import logging
-import os
 from dataclasses import dataclass, field
-from pathlib import Path
-from typing import Protocol
 
 from . import domain
-from .client import BsportError
 from .config import Config
-from .domain import Offer, Pack
+from .domain import Pack
+from .ports import BookingGateway, BsportError
 
 log = logging.getLogger(__name__)
 WEEKDAYS = ("lun", "mar", "mié", "jue", "vie", "sáb", "dom")
 FORGET_AFTER_DAYS = 120
-
-
-class Client(Protocol):
-    def member_id(self) -> int: ...
-    def booked_offers(self) -> set[int]: ...
-    def packs(self, member: int) -> list[Pack]: ...
-    def offers(
-        self, company: int, establishment: int, first: dt.date, last: dt.date
-    ) -> list[Offer]: ...
-    def book(self, pack: Pack, offer: Offer) -> None: ...
 
 
 # Keys that describe a condition: once it stops being true the key goes, so it can be said again.
@@ -42,31 +28,6 @@ class Report:
     credits: str = ""
     published_until: str = ""
     failed: bool = False
-
-
-class StateError(Exception):
-    pass
-
-
-def load_state(path: Path) -> dict[str, str]:
-    try:
-        raw = json.loads(path.read_text())
-    except FileNotFoundError:
-        return {}
-    except (OSError, ValueError) as exc:
-        raise StateError(str(exc)) from exc
-    if not isinstance(raw, dict):
-        raise StateError("not a JSON object")
-    return {str(k): str(v) for k, v in raw.items()}
-
-
-def save_state(path: Path, state: dict[str, str]) -> None:
-    tmp = path.with_suffix(".tmp")
-    with tmp.open("w") as out:
-        out.write(json.dumps(state, indent=2, sort_keys=True) + "\n")
-        out.flush()
-        os.fsync(out.fileno())
-    tmp.replace(path)
 
 
 def commit(state: dict[str, str], report: Report, today: dt.date, *, announced: bool) -> None:
@@ -92,7 +53,12 @@ def _count(pack: Pack) -> str:
 
 
 def run(
-    client: Client, config: Config, state: dict[str, str], *, now: dt.datetime, dry_run: bool
+    client: BookingGateway,
+    config: Config,
+    state: dict[str, str],
+    *,
+    now: dt.datetime,
+    dry_run: bool,
 ) -> Report:
     """Books what it can (unless `dry_run`); never touches `state`, see `commit`."""
     report = Report()

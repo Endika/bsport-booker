@@ -20,7 +20,12 @@ bsport-booker = "bsport_booker.cli:main"
 [tool.setuptools]
 packages = [
     "bsport_booker",
+    "bsport_booker.adapters",
+    "bsport_booker.adapters.bsport",
+    "bsport_booker.adapters.notify",
+    "bsport_booker.adapters.state",
     "bsport_booker.domain",
+    "bsport_booker.ports",
 ]
 
 [tool.ruff]
