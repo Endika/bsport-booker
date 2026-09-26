@@ -26,6 +26,7 @@ class FakeBsport:
     packs: list[dict[str, Any]] = field(default_factory=list)
     bookings: list[int] = field(default_factory=list)
     page_size: int = 1000
+    hide_next: bool = False  # the real offer list once promised 446 and linked no page 2
     studio: dict[str, Any] = field(default_factory=dict)
     book_status: int = 201
     slack_ok: bool = True
@@ -88,11 +89,14 @@ class FakeBsport:
         chunk = items[(page - 1) * self.page_size : page * self.page_size]
         more = page * self.page_size < len(items)
         base = url.split("&page=", 1)[0]
+        following = f"{base}&page={page + 1}" if more and not self.hide_next else None
+        if "/book/v1/offer/" in url:  # the real one nests it
+            return _json({"count": len(items), "results": chunk, "links": {"next": following}})
         return _json(
             {
                 "count": len(items),
                 "results": chunk,
-                "next": f"{base}&page={page + 1}" if more else None,
+                "next": following,
             }
         )
 

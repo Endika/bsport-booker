@@ -106,7 +106,11 @@ class Bsport:
             if not isinstance(page, dict) or not isinstance(page.get("results"), list):
                 raise BsportError(what, 200, "unexpected shape")
             out += page["results"]
-            next_url = page.get("next") or None
+            # Offers put it under `links`; bookings and members at the top.
+            next_url = page.get("next") or (page.get("links") or {}).get("next") or None
+            count = page.get("count")
+            if not next_url and isinstance(count, int) and len(out) < count:
+                raise BsportError(what, 200, f"read {len(out)} of {count} and found no next page")
         raise BsportError(what, 200, f"more than {MAX_PAGES} pages")
 
     def login(self, email: str, password: str) -> None:

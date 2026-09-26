@@ -353,3 +353,28 @@ def test_discover_lists_studios_ids_and_class_slots(home, bsport, capsys):
     assert f"Estudio Demo\n  company = {COMPANY}\n  establishment = {ESTABLISHMENT}" in out
     assert "FUNCTIONAL TRAINING: lun 11:00" in out
     assert "PILATES: mié 19:30" in out
+
+
+def test_offers_on_a_second_page_behind_links_next_are_booked(home, bsport):
+    bsport.pack(*OCTOBER, credits=12)
+    bsport.page_size = 2
+    for day in ("09", "14", "16", "19", "21", "23"):
+        bsport.offer(f"2026-10-{day}T11:00")
+
+    tick(home, bsport)
+
+    assert len(booked_offers(bsport)) == 6
+    assert "vie 23/10" in slack(bsport)[0]
+
+
+def test_a_list_shorter_than_its_count_is_an_error_not_a_quiet_cut(home, bsport):
+    bsport.pack(*OCTOBER, credits=12)
+    bsport.page_size = 2
+    bsport.hide_next = True
+    for day in ("09", "14", "16"):
+        bsport.offer(f"2026-10-{day}T11:00")
+
+    assert tick(home, bsport) == 1
+
+    assert booked_offers(bsport) == []
+    assert "read 2 of 3" in slack(bsport)[0]
