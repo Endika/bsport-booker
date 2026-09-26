@@ -99,7 +99,8 @@ def news(items: Sequence[str], credits: str) -> str:
 
 
 def fatal(notes: Sequence[str], error: Exception) -> str:
-    return "\n".join([*notes, f"❌ bsport: no he podido mirar las clases. {error}"])
+    why = str(error) or type(error).__name__
+    return "\n".join([*notes, f"❌ bsport: no he podido mirar las clases. {why}"])
 
 
 def unsaved(path: Path) -> str:

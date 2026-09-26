@@ -384,3 +384,19 @@ def test_a_list_shorter_than_its_count_is_an_error_not_a_quiet_cut(home, bsport)
 
     assert booked_offers(bsport) == []
     assert "read 2 of 3" in slack(bsport)[0]
+
+
+def test_a_failure_with_no_message_is_named_by_its_type(home, bsport, monkeypatch):
+    def broken(*args: object, **kwargs: object) -> None:
+        raise RuntimeError
+
+    real = bsport.request
+    monkeypatch.setattr(
+        bsport,
+        "request",
+        lambda method, url, **kw: broken() if "/book/v1/offer/" in url else real(method, url, **kw),
+    )
+
+    assert tick(home, bsport) == 1
+
+    assert slack(bsport)[0].endswith("no he podido mirar las clases. RuntimeError")
