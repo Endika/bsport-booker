@@ -64,7 +64,7 @@ def listings(rows: Iterable[Row]) -> list[Listing]:
         Listing(
             company=str(o.get("company") or ""),
             activity=str(o.get("activity_name") or ""),
-            start=dt.datetime.fromisoformat(o["date_start"]),
+            start=local_start(o["date_start"], o.get("timezone_name")),
         )
         for o in rows
     ]

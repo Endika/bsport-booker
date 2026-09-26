@@ -107,6 +107,14 @@ def test_listings_leave_a_missing_company_and_activity_blank():
     assert (listing.company, listing.activity) == ("", "")
 
 
+def test_listings_are_on_the_studio_wall_clock_like_offers():
+    [listing] = parsing.listings(
+        [{"date_start": "2026-09-28T09:00:00Z", "timezone_name": "Europe/Madrid"}]
+    )
+
+    assert (listing.start.hour, listing.start.utcoffset()) == (11, dt.timedelta(hours=2))
+
+
 def test_the_detail_of_an_error_that_is_not_json_is_its_first_120_characters():
     assert parsing.detail(Response(502, b"  <html>" + b"x" * 200)) == "<html>" + "x" * 112
 

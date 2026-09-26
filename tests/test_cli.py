@@ -417,3 +417,15 @@ def test_a_look_spends_credits_like_a_run_so_it_never_promises_more_than_it_can_
     assert "⚠️ mié 30/09 11:00 Functional Training: sin créditos para ese día" in out
     assert "Créditos: 0 (bono 09/09–08/10)" in out
     assert booked_offers(bsport) == []
+
+
+def test_discover_shows_class_times_on_the_studio_wall_clock(home, bsport, capsys):
+    utc = bsport.offer("2026-09-28T11:00")
+    utc["date_start"] = "2026-09-28T09:00:00Z"
+    utc["timezone_name"] = "Europe/Madrid"
+    bsport.bookings.append(utc["id"])
+    bsport.studio = {"id": ESTABLISHMENT, "title": "Estudio Demo"}
+
+    assert tick(home, bsport, "--discover") == 0
+
+    assert "FUNCTIONAL TRAINING: lun 11:00" in capsys.readouterr().out
