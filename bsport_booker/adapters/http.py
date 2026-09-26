@@ -9,18 +9,11 @@ import urllib.request
 from ..ports import Response
 
 
-class _NoRedirect(urllib.request.HTTPRedirectHandler):
-    def redirect_request(self, *_args: object, **_kwargs: object) -> None:
-        return None
-
-
 class UrllibTransport:
-    """Keeps cookies across calls and never follows redirects: the login token rides in one."""
-
     def __init__(self, timeout: float = 30) -> None:
         self._timeout = timeout
         self._opener = urllib.request.build_opener(
-            urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()), _NoRedirect()
+            urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar())
         )
 
     def request(
@@ -30,5 +23,6 @@ class UrllibTransport:
         try:
             with self._opener.open(req, timeout=self._timeout) as res:
                 return Response(res.status, res.read(), dict(res.headers.items()))
+        # urllib raises on 4xx and 5xx; the callers want those as answers.
         except urllib.error.HTTPError as err:
             return Response(err.code, err.read(), dict(err.headers.items()))
