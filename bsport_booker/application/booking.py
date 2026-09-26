@@ -82,11 +82,13 @@ def book_due(
         decision = decide(offer, packs, booked)
         if isinstance(decision, Skip):
             _skip(report, decision)
-        elif dry_run:
+            continue
+        if dry_run:
             report.lines.append(messages.would_book_line(decision))
-        elif _book(bsport, report, decision):
-            packs = spend(packs, decision)
-            booked.add(offer.id)
+        elif not _book(bsport, report, decision):
+            continue
+        packs = spend(packs, decision)
+        booked.add(offer.id)
     _credits(report, packs, today, config.low_credits)
     return report
 

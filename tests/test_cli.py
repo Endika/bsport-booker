@@ -400,3 +400,20 @@ def test_a_failure_with_no_message_is_named_by_its_type(home, bsport, monkeypatc
     assert tick(home, bsport) == 1
 
     assert slack(bsport)[0].endswith("no he podido mirar las clases. RuntimeError")
+
+
+@pytest.mark.parametrize("mode", ["--dry-run", "--status"])
+def test_a_look_spends_credits_like_a_run_so_it_never_promises_more_than_it_can_pay(
+    home, bsport, capsys, mode
+):
+    bsport.pack(*SEPTEMBER, credits=1)
+    bsport.offer("2026-09-28T11:00")
+    bsport.offer("2026-09-30T11:00")
+
+    tick(home, bsport, mode)
+
+    out = capsys.readouterr().out
+    assert "➕ lun 28/09 11:00 Functional Training: la reservaría" in out
+    assert "⚠️ mié 30/09 11:00 Functional Training: sin créditos para ese día" in out
+    assert "Créditos: 0 (bono 09/09–08/10)" in out
+    assert booked_offers(bsport) == []
