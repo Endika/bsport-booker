@@ -11,6 +11,9 @@ updates:
       # The package has no runtime dependencies; everything here is dev tooling.
       dev:
         patterns: ["*"]
+        update-types:
+          - minor
+          - patch
 
   - package-ecosystem: github-actions
     directory: "/"
@@ -20,3 +23,6 @@ updates:
     groups:
       actions:
         patterns: ["*"]
+        update-types:
+          - minor
+          - patch
