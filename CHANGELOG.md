@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.1](https://github.com/Endika/bsport-booker/compare/v0.1.0...v0.1.1) (2026-10-02)
+
+
+### Bug Fixes
+
+* use pass in protocol bodies so CodeQL stops flagging them ([9251b77](https://github.com/Endika/bsport-booker/commit/9251b774ae3b2158a594de4a9f63ee7059592861))
+
 ## 0.1.0 (2026-09-26)
 
 
