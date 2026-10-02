@@ -21,7 +21,8 @@ class Response:
 class Transport(Protocol):
     def request(
         self, method: str, url: str, *, headers: dict[str, str], body: bytes | None = None
-    ) -> Response: ...
+    ) -> Response:
+        pass
 
 
 class _NoRedirect(urllib.request.HTTPRedirectHandler):
