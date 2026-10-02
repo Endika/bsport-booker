@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "bsport-booker"
-version = "0.1.0"
+version = "0.1.1"
 description = "Books your bsport classes on its own as soon as they can be booked"
 readme = "README.md"
 license = "MIT"
