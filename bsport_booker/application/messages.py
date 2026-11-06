@@ -18,6 +18,10 @@ NO_STUDIOS = "No upcoming bookings, so bsport won't say which studios are yours.
 # (the line in --status, the news on Slack); being booked already is never news.
 _SKIPS = {
     Reason.BOOKED: ("✅ {}: reservada", ""),
+    Reason.CANCELLED: (
+        "🙅 {}: cancelada por ti",
+        "🙅 {}: la has cancelado, no la vuelvo a reservar",
+    ),
     Reason.UNAVAILABLE: ("⛔ {}: no disponible", "⛔ {}: el estudio la tiene como no disponible"),
     Reason.FULL: (
         "🚫 {}: llena, sigo intentándolo",

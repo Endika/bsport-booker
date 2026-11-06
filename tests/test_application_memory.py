@@ -32,10 +32,10 @@ def test_what_is_not_a_condition_is_kept_while_it_is_recent():
     assert remember(state, run(state), TODAY, announced=True) == state
 
 
-def test_news_is_only_remembered_once_it_was_announced():
+def test_news_is_only_remembered_once_it_was_announced_except_a_booking():
     fresh = run({}, seen={"full:1"}, news={"full:1", "booked:2"})
 
-    assert remember({}, fresh, TODAY, announced=False) == {}
+    assert remember({}, fresh, TODAY, announced=False) == {"booked:2": "2026-09-26"}
     assert remember({}, fresh, TODAY, announced=True) == {
         "full:1": "2026-09-26",
         "booked:2": "2026-09-26",

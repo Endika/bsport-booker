@@ -35,6 +35,7 @@ For each published class that matches a `[[class]]` in your config and hasn't st
 | Situation | What it does | Slack |
 |---|---|---|
 | You're already booked | nothing | — |
+| It booked this class and you cancelled it | leaves it alone; book it in the app if you change your mind | 🙅 once |
 | Open, with a pack to pay for it | books it | 🎉 once |
 | Full | tries again next run and books it if a spot frees up | 🚫 once |
 | No pack with credits for that day | skips it; this is not treated as a failure | ⚠️ once |

@@ -78,6 +78,56 @@ def test_a_class_already_booked_is_left_alone_and_a_quiet_run_says_nothing(home,
     assert slack(bsport) == []
 
 
+def test_a_class_you_cancelled_is_said_once_and_never_booked_again(home, bsport):
+    bsport.pack(*SEPTEMBER, credits=5)
+    monday = bsport.offer("2026-09-28T11:00")
+    assert tick(home, bsport) == 0
+
+    bsport.bookings.remove(monday["id"])
+    assert tick(home, bsport) == 0
+    assert tick(home, bsport) == 0
+
+    assert booked_offers(bsport) == [monday["id"]]
+    news = [m for m in slack(bsport) if "la has cancelado" in m]
+    assert len(news) == 1
+
+
+def test_cancelling_one_class_leaves_the_others_to_be_booked(home, bsport):
+    bsport.pack(*SEPTEMBER, credits=5)
+    monday = bsport.offer("2026-09-28T11:00")
+    assert tick(home, bsport) == 0
+
+    bsport.bookings.remove(monday["id"])
+    wednesday = bsport.offer("2026-09-30T11:00")
+    assert tick(home, bsport) == 0
+
+    assert booked_offers(bsport) == [monday["id"], wednesday["id"]]
+
+
+def test_a_cancellation_is_seen_even_if_slack_missed_the_booking(home, bsport):
+    bsport.pack(*SEPTEMBER, credits=5)
+    monday = bsport.offer("2026-09-28T11:00")
+    bsport.slack_ok = False
+    assert tick(home, bsport) == 1
+
+    bsport.slack_ok = True
+    bsport.bookings.remove(monday["id"])
+    assert tick(home, bsport) == 0
+
+    assert booked_offers(bsport) == [monday["id"]]
+
+
+def test_status_shows_a_cancelled_class_and_does_not_offer_to_book_it(home, bsport):
+    bsport.pack(*SEPTEMBER, credits=5)
+    monday = bsport.offer("2026-09-28T11:00")
+    assert tick(home, bsport) == 0
+
+    bsport.bookings.remove(monday["id"])
+    assert tick(home, bsport, "--status") == 0
+
+    assert "🙅 lun 28/09 11:00 Functional Training: cancelada por ti" in slack(bsport)[-1]
+
+
 def test_no_credits_for_a_day_is_said_once_and_is_not_a_failure(home, bsport):
     bsport.pack(*SEPTEMBER, credits=0)
     bsport.pack(*OCTOBER, credits=12)
