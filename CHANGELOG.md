@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.0](https://github.com/Endika/bsport-booker/compare/v0.1.1...v0.2.0) (2026-11-06)
+
+
+### Features
+
+* leave a class you cancelled alone instead of booking it again ([9281af9](https://github.com/Endika/bsport-booker/commit/9281af96fe1ffb5953791d5835a360cbb5953b7f))
+
 ## [0.1.1](https://github.com/Endika/bsport-booker/compare/v0.1.0...v0.1.1) (2026-10-02)
 
 
