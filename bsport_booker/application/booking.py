@@ -52,8 +52,9 @@ def book_due(
     last = today + dt.timedelta(days=config.horizon_days)
     offers = bsport.offers(config.company, config.establishment, today, last)
     report.published_until = published_until(offers, config.classes)
+    cancelled = {o.id for o in offers if Topic.BOOKED.key(o.id) in state} - booked
     for offer in due(offers, config.classes, now):
-        decision = decide(offer, packs, booked)
+        decision = decide(offer, packs, booked, cancelled)
         if isinstance(decision, Skip):
             _skip(report, decision)
             continue

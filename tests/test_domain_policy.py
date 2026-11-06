@@ -73,6 +73,14 @@ def test_a_booked_class_is_skipped_before_anything_else_is_looked_at():
     assert decide(full_and_booked, [SEPTEMBER], {1}) == Skip(full_and_booked, Reason.BOOKED)
 
 
+def test_a_cancelled_class_is_not_booked_again_while_it_is_open():
+    assert decide(MONDAY, [SEPTEMBER], set(), {1}) == Skip(MONDAY, Reason.CANCELLED)
+
+
+def test_a_cancelled_class_booked_again_by_hand_counts_as_booked():
+    assert decide(MONDAY, [SEPTEMBER], {1}, {1}) == Skip(MONDAY, Reason.BOOKED)
+
+
 def test_unavailable_is_said_before_full():
     both = offer("2026-09-28T11:00", full=True, available=False)
     assert decide(both, [SEPTEMBER], set()) == Skip(both, Reason.UNAVAILABLE)

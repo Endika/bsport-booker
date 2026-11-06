@@ -12,6 +12,7 @@ from .models import Offer, Pack, Wanted, same_class
 
 class Reason(Enum):
     BOOKED = auto()
+    CANCELLED = auto()
     UNAVAILABLE = auto()
     FULL = auto()
     NO_CREDITS = auto()
@@ -38,9 +39,16 @@ def due(offers: Iterable[Offer], wanted: Collection[Wanted], now: dt.datetime) -
     return sorted(hits, key=lambda o: o.start)
 
 
-def decide(offer: Offer, packs: Iterable[Pack], booked: Collection[int]) -> Decision:
+def decide(
+    offer: Offer,
+    packs: Iterable[Pack],
+    booked: Collection[int],
+    cancelled: Collection[int] = (),
+) -> Decision:
     if offer.id in booked:
         return Skip(offer, Reason.BOOKED)
+    if offer.id in cancelled:
+        return Skip(offer, Reason.CANCELLED)
     if not offer.available:
         return Skip(offer, Reason.UNAVAILABLE)
     if offer.full:

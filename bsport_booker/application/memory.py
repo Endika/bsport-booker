@@ -16,6 +16,7 @@ class Topic(Enum):
     """What a state key is about. The names of the skip reasons match `domain.Reason`."""
 
     BOOKED = "booked"
+    CANCELLED = "cancelled"
     FATAL = "fatal"
     UNAVAILABLE = "unavailable"
     FULL = "full"
@@ -44,7 +45,8 @@ def remember(
     stamp = today.isoformat()
     kept = {k: v for k, v in state.items() if not k.startswith(CONDITIONS) or k in report.seen}
     kept.update(dict.fromkeys(report.seen & kept.keys(), stamp))
-    if announced:
-        kept.update({key: stamp for key, _ in report.news})
+    # A booking stands even if Slack missed it, and its key is what reveals a later cancellation.
+    booking = Topic.BOOKED.key("")
+    kept.update({k: stamp for k, _ in report.news if announced or k.startswith(booking)})
     cutoff = (today - dt.timedelta(days=FORGET_AFTER_DAYS)).isoformat()
     return {k: seen for k, seen in kept.items() if seen >= cutoff}
