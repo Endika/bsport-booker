@@ -81,7 +81,9 @@ class Tick:
         return text
 
     def _show(self, report: Report, notes: list[str]) -> Outcome:
-        picture = messages.picture(report.lines, report.credits, report.published_until)
+        picture = messages.picture(
+            report.lines, report.credits, report.unused, report.published_until
+        )
         text = "\n".join([*notes, picture])
         if self.mode is Mode.STATUS:
             self._tell(text)

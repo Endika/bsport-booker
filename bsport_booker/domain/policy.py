@@ -9,6 +9,8 @@ from enum import Enum, auto
 
 from .models import Offer, Pack, Wanted, same_class
 
+_SYNTHETIC = -1
+
 
 class Reason(Enum):
     BOOKED = auto()
@@ -87,3 +89,48 @@ def published_until(offers: Iterable[Offer], wanted: Collection[Wanted]) -> dt.d
     # about yours.
     yours = [o.start for o in offers if any(same_class(o.name, w.name) for w in wanted)]
     return max(yours, default=None)
+
+
+def unused_at_expiry(
+    packs: Sequence[Pack],
+    wanted: Collection[Wanted],
+    offers: Iterable[Offer],
+    booked: Collection[int],
+    cancelled: Collection[int],
+    now: dt.datetime,
+    published_until: dt.datetime | None,
+) -> list[tuple[Pack, int]]:
+    """The packs that will still hold credits when they expire, if you keep booking at your pace.
+
+    A day inside the published range with no class (the studio is closed) is not counted.
+    """
+    slots = [o for o in due(offers, wanted, now) if o.id not in booked and o.id not in cancelled]
+    slots += _projected(wanted, packs, now, published_until)
+    left = list(packs)
+    for slot in slots:
+        pack = pay_with(left, slot)
+        if pack is not None:
+            left = spend(left, Book(slot, pack))
+    return [
+        (p, p.credits)
+        for p in in_force(left, now.date())
+        if p.credits is not None and p.credits > 0
+    ]
+
+
+def _projected(
+    wanted: Collection[Wanted],
+    packs: Iterable[Pack],
+    now: dt.datetime,
+    published_until: dt.datetime | None,
+) -> list[Offer]:
+    first = now.date() if published_until is None else published_until.date() + dt.timedelta(days=1)
+    last = max((p.end for p in packs if not p.disabled), default=first)
+    days = (first + dt.timedelta(days=n) for n in range((last - first).days + 1))
+    slots = (
+        Offer(_SYNTHETIC, w.name, dt.datetime.combine(day, w.time, now.tzinfo), True, False, 1)
+        for day in days
+        for w in wanted
+        if day.weekday() in w.days
+    )
+    return sorted((o for o in slots if o.start > now), key=lambda o: o.start)

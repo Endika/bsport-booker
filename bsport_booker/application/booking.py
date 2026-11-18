@@ -8,8 +8,17 @@ from collections.abc import Collection, Sequence
 from dataclasses import dataclass, field
 
 from ..config import Config
-from ..domain.models import Pack
-from ..domain.policy import Book, Skip, decide, due, in_force, published_until, spend
+from ..domain.models import Offer, Pack
+from ..domain.policy import (
+    Book,
+    Skip,
+    decide,
+    due,
+    in_force,
+    published_until,
+    spend,
+    unused_at_expiry,
+)
 from ..ports import BookingGateway, BsportError
 from . import messages
 from .memory import Topic
@@ -24,6 +33,7 @@ class Report:
     news: list[tuple[str, str]] = field(default_factory=list)  # (key, text) not yet announced
     seen: set[str] = field(default_factory=set)  # every condition key true right now
     credits: str = ""
+    unused: list[str] = field(default_factory=list)  # packs that will expire with credits left
     published_until: dt.datetime | None = None
     failed: bool = False
 
@@ -66,6 +76,7 @@ def book_due(
         booked.add(offer.id)
     # A look spends nothing for real, so its balance is the one bsport has.
     _credits(report, fetched if dry_run else packs, today, config.low_credits)
+    _unused(report, config, packs, offers, booked, cancelled, now)
     return report
 
 
@@ -101,3 +112,19 @@ def _credits(report: Report, packs: Sequence[Pack], today: dt.date, low: int) ->
             report.note(Topic.LOW, pack.id, pack.credits, text=messages.low(pack))
     if not live:
         report.note(Topic.NO_PACK, text=messages.NO_PACK)
+
+
+def _unused(
+    report: Report,
+    config: Config,
+    packs: Sequence[Pack],
+    offers: Sequence[Offer],
+    booked: Collection[int],
+    cancelled: Collection[int],
+    now: dt.datetime,
+) -> None:
+    args = (packs, config.classes, offers, booked, cancelled, now, report.published_until)
+    for pack, left in unused_at_expiry(*args):
+        text = messages.unused(pack, left)
+        report.unused.append(text)
+        report.note(Topic.UNUSED, pack.id, left, text=text)
