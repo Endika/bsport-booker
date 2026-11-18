@@ -10,6 +10,7 @@ from ..domain.models import Listing, Offer, Pack
 from ..domain.policy import Book, Reason, Skip
 
 WEEKDAYS = ("lun", "mar", "mié", "jue", "vie", "sáb", "dom")
+MONTHS = ("ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic")
 DRY_RUN = "(simulado, no se ha reservado nada)\n"
 NOTHING_PUBLISHED = "No hay ninguna de tus clases publicada todavía."
 NO_PACK = "🪫 No tienes ningún bono en vigor"
@@ -42,8 +43,12 @@ def _label(offer: Offer) -> str:
     return f"{when(offer.start)} {offer.name.title()}"
 
 
+def _day(day: dt.date) -> str:
+    return f"{day.day} {MONTHS[day.month - 1]}"
+
+
 def _span(pack: Pack) -> str:
-    return f"{pack.start:%d/%m}–{pack.end:%d/%m}"
+    return f"del {_day(pack.start)} al {_day(pack.end)}"
 
 
 def _count(pack: Pack) -> str:
@@ -61,7 +66,7 @@ def skip_news(skip: Skip) -> str:
 
 
 def would_book_line(booking: Book) -> str:
-    return f"➕ {_label(booking.offer)}: la reservaría (bono hasta {booking.pack.end:%d/%m})"
+    return f"➕ {_label(booking.offer)}: la reservaría (bono hasta el {_day(booking.pack.end)})"
 
 
 def booked_line(offer: Offer) -> str:

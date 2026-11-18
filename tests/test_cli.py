@@ -64,7 +64,7 @@ def test_books_only_the_wanted_classes_and_pays_with_the_pack_for_that_day(home,
     [message] = slack(bsport)
     assert "🎉 lun 28/09 11:00 Functional Training: reservada" in message
     assert "🎉 vie 09/10 11:00 Functional Training: reservada" in message
-    assert "Créditos: 2 (bono 09/09–08/10), 11 (bono 09/10–08/11)" in message
+    assert "Créditos: 2 (bono del 9 sep al 8 oct), 11 (bono del 9 oct al 8 nov)" in message
 
 
 def test_a_class_already_booked_is_left_alone_and_a_quiet_run_says_nothing(home, bsport):
@@ -151,8 +151,8 @@ def test_an_empty_pack_and_low_credits_are_each_announced_once(home, bsport):
     tick(home, bsport)
 
     messages = "\n".join(slack(bsport))
-    assert messages.count("Bono 09/09–08/10 agotado") == 1
-    assert messages.count("Quedan 2 créditos en el bono 09/10–08/11") == 1
+    assert messages.count("Bono del 9 sep al 8 oct agotado") == 1
+    assert messages.count("Quedan 2 créditos en el bono del 9 oct al 8 nov") == 1
     assert october["available_credits"] == 2
 
 
@@ -250,7 +250,7 @@ def test_dry_run_books_nothing_saves_nothing_and_tells_nobody(home, bsport, caps
     assert not (home / "state.json").exists()
     out = capsys.readouterr().out
     assert "simulado" in out
-    assert "➕ lun 28/09 11:00 Functional Training: la reservaría (bono hasta 08/10)" in out
+    assert "➕ lun 28/09 11:00 Functional Training: la reservaría (bono hasta el 8 oct)" in out
 
 
 def test_status_sends_the_whole_picture_and_books_nothing(home, bsport):
@@ -366,7 +366,7 @@ def test_odd_shapes_from_bsport_still_book(home, bsport):
     assert tick(home, bsport) == 0
 
     assert booked_offers(bsport) == [utc["id"]]
-    assert "Créditos: ilimitados (bono 09/09–08/10)" in slack(bsport)[0]
+    assert "Créditos: ilimitados (bono del 9 sep al 8 oct)" in slack(bsport)[0]
 
 
 def test_winter_time_classes_match_the_same_wall_clock_hour(home, bsport):
@@ -465,7 +465,7 @@ def test_a_look_never_promises_more_than_the_packs_pay_and_shows_the_real_balanc
     out = capsys.readouterr().out
     assert "➕ lun 28/09 11:00 Functional Training: la reservaría" in out
     assert "⚠️ mié 30/09 11:00 Functional Training: sin créditos para ese día" in out
-    assert "Créditos: 1 (bono 09/09–08/10)" in out
+    assert "Créditos: 1 (bono del 9 sep al 8 oct)" in out
     assert booked_offers(bsport) == []
 
 
@@ -530,5 +530,5 @@ def test_a_pack_that_will_expire_with_credits_left_is_said_once(home, bsport):
     tick(home, bsport)
     tick(home, bsport)
 
-    warning = "El bono 09/09–08/10 caducará con 5 créditos sin usar a este ritmo"
+    warning = "El bono del 9 sep al 8 oct caducará con 5 créditos sin usar a este ritmo"
     assert "\n".join(slack(bsport)).count(warning) == 1
