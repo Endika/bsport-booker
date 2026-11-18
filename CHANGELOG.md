@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.0](https://github.com/Endika/bsport-booker/compare/v0.2.0...v0.3.0) (2026-11-18)
+
+
+### Features
+
+* name the month in pack dates ([587c140](https://github.com/Endika/bsport-booker/commit/587c1402d55d957e296b23a6db4a591a3d663c46))
+* warn when a pack will expire with credits left unused ([db2fff6](https://github.com/Endika/bsport-booker/commit/db2fff6a046295c3bed832224e6f9e9518123a41))
+
 ## [0.2.0](https://github.com/Endika/bsport-booker/compare/v0.1.1...v0.2.0) (2026-11-06)
 
 
