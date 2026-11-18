@@ -13,6 +13,7 @@ from bsport_booker.domain.policy import (
     pay_with,
     published_until,
     spend,
+    unused_at_expiry,
 )
 
 MADRID = ZoneInfo("Europe/Madrid")
@@ -171,3 +172,63 @@ def test_published_until_counts_your_classes_at_any_day_or_hour_and_nobody_else_
 
 def test_published_until_is_none_when_none_of_yours_is_out():
     assert published_until([offer("2026-10-21T11:00", "PILATES")], MON_WED_AT_11) is None
+
+
+PUBLISHED = ("2026-09-28T11:00", "2026-09-30T11:00", "2026-10-07T11:00")
+
+
+def left(p: Pack, credits: int) -> tuple[Pack, int]:
+    return replace(p, credits=credits), credits
+
+
+def unused(
+    packs: list[Pack],
+    offers: list[Offer],
+    *,
+    booked: tuple[int, ...] | set[int] = (),
+    cancelled: tuple[int, ...] | set[int] = (),
+    until: str = "2026-09-30T11:00",
+) -> list[tuple[Pack, int]]:
+    published = dt.datetime.fromisoformat(until).replace(tzinfo=MADRID)
+    return unused_at_expiry(packs, MON_WED_AT_11, offers, booked, cancelled, NOW, published)
+
+
+def test_a_closed_day_inside_the_published_range_is_not_counted():
+    # Mon 5/10 is a holiday inside the published range.
+    published = [offer(d, id=i) for i, d in enumerate(PUBLISHED, 1)]
+    short = pack("2026-09-09", "2026-10-08", 6)
+
+    assert unused([short], published, until="2026-10-07T11:00") == [left(short, 3)]
+
+
+def test_a_cancelled_class_leaves_its_credit_unused():
+    published = [offer(d, id=i) for i, d in enumerate(PUBLISHED, 1)]
+    short = pack("2026-09-09", "2026-10-08", 6)
+
+    assert unused([short], published, cancelled={1}, until="2026-10-07T11:00") == [left(short, 4)]
+
+
+def test_a_class_already_booked_is_not_counted_again():
+    booked_one = offer("2026-09-28T11:00", id=1)
+    short = pack("2026-09-09", "2026-10-08", 5)  # its credit for id=1 is already gone
+
+    assert unused([short], [booked_one], booked={1}, until="2026-09-28T11:00") == [left(short, 2)]
+
+
+def test_the_pack_that_ends_first_is_spent_first():
+    early = pack("2026-09-09", "2026-10-01", 2, id=10)
+    late = pack("2026-09-09", "2026-10-08", 20, id=11)
+    published = [offer("2026-09-28T11:00", id=1), offer("2026-09-30T11:00", id=2)]
+
+    assert unused([early, late], published) == [left(late, 18)]
+
+
+def test_an_unlimited_pack_is_ignored():
+    assert unused([pack("2026-09-09", "2026-10-08", None)], []) == []
+
+
+def test_a_pack_that_the_pace_empties_leaves_nothing():
+    exact = pack("2026-09-09", "2026-10-08", 4)
+    published = [offer("2026-09-28T11:00", id=1), offer("2026-09-30T11:00", id=2)]
+
+    assert unused([exact], published) == []

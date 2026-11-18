@@ -68,7 +68,7 @@ def test_books_only_the_wanted_classes_and_pays_with_the_pack_for_that_day(home,
 
 
 def test_a_class_already_booked_is_left_alone_and_a_quiet_run_says_nothing(home, bsport):
-    bsport.pack(*SEPTEMBER, credits=5)
+    bsport.pack(*SEPTEMBER, credits=4)
     monday = bsport.offer("2026-09-28T11:00")
     bsport.bookings.append(monday["id"])
 
@@ -520,3 +520,15 @@ def test_a_redirected_booking_is_an_error_and_is_never_reported_as_booked(home, 
     [message] = slack(bsport)
     assert "no he podido reservarla (book: HTTP 302" in message
     assert "reservada" not in message
+
+
+def test_a_pack_that_will_expire_with_credits_left_is_said_once(home, bsport):
+    bsport.pack(*SEPTEMBER, credits=10)
+    bsport.offer("2026-09-28T11:00")
+    bsport.offer("2026-09-30T11:00")
+
+    tick(home, bsport)
+    tick(home, bsport)
+
+    warning = "El bono 09/09–08/10 caducará con 5 créditos sin usar a este ritmo"
+    assert "\n".join(slack(bsport)).count(warning) == 1

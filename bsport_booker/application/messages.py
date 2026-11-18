@@ -94,9 +94,19 @@ def low(pack: Pack) -> str:
     return f"🔋 Quedan {pack.credits} créditos en el bono {_span(pack)}"
 
 
-def picture(lines: Sequence[str], credits: str, published_until: dt.datetime | None) -> str:
+def unused(pack: Pack, left: int) -> str:
+    credits = "1 crédito" if left == 1 else f"{left} créditos"
+    return f"🗑️ El bono {_span(pack)} caducará con {credits} sin usar a este ritmo"
+
+
+def picture(
+    lines: Sequence[str],
+    credits: str,
+    warnings: Sequence[str],
+    published_until: dt.datetime | None,
+) -> str:
     body = "\n".join(lines) or NOTHING_PUBLISHED
-    text = f"bsport\n{body}\n{credits}"
+    text = "\n".join(["bsport", body, credits, *warnings])
     if published_until is not None:
         day = f"{WEEKDAYS[published_until.weekday()]} {published_until:%d/%m}"
         text += f"\nTus clases están publicadas hasta el {day}"

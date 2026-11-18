@@ -25,6 +25,7 @@ class Topic(Enum):
     EMPTY = "empty"
     LOW = "low"
     NO_PACK = "nopack"
+    UNUSED = "unused"
 
     @property
     def is_condition(self) -> bool:
