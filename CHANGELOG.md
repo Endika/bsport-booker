@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.1](https://github.com/Endika/bsport-booker/compare/v0.3.0...v0.3.1) (2026-11-28)
+
+
+### Bug Fixes
+
+* read bookings from book/v1/booking now that api-v0 is gone ([73fe572](https://github.com/Endika/bsport-booker/commit/73fe572d0730d6ff3cbfc2d0b472133200c0b910))
+
 ## [0.3.0](https://github.com/Endika/bsport-booker/compare/v0.2.0...v0.3.0) (2026-11-18)
 
 
