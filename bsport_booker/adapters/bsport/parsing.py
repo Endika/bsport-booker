@@ -71,16 +71,15 @@ def listings(rows: Iterable[Row]) -> list[Listing]:
 
 
 def booked(rows: Iterable[Row]) -> set[int]:
-    return {int(b["offer"]["id"]) for b in rows if b.get("status")}
+    return {int(b["offer"]) for b in rows if not b.get("date_canceled") and not b.get("is_deleted")}
+
+
+def establishments(rows: Iterable[Row]) -> set[int]:
+    return {int(b["establishment"]) for b in rows if b.get("establishment")}
 
 
 def studios(rows: Iterable[Row]) -> dict[int, str]:
-    found: dict[int, str] = {}
-    for b in rows:
-        place = ((b.get("offer") or {}).get("activity") or {}).get("etablissement") or {}
-        if place.get("id"):
-            found[int(place["id"])] = str(place.get("title") or "")
-    return found
+    return {int(e["id"]): str(e.get("title") or "") for e in rows if e.get("id")}
 
 
 def detail(res: Response) -> str:

@@ -15,7 +15,6 @@ from . import parsing
 
 API = "https://api.production.bsport.io"
 LOGIN = f"{API}/platform/v1/authentication/signin/with-login/"
-FUTURE_BOOKINGS = f"{API}/api-v0/booking/future/?page_size=100"
 USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64) bsport-booker"
 MAX_PAGES = 20
 
@@ -40,11 +39,15 @@ class BsportGateway:
             raise BsportError("member", 200, f"expected one member, got {len(found)}")
         return int(found[0]["id"])
 
-    def booked_offers(self) -> set[int]:
-        return parsing.booked(self._pages("bookings", FUTURE_BOOKINGS))
+    def booked_offers(self, member: int, since: dt.date) -> set[int]:
+        return parsing.booked(self._bookings(member, since))
 
-    def studios(self) -> dict[int, str]:
-        return parsing.studios(self._pages("bookings", FUTURE_BOOKINGS))
+    def studios(self, member: int, since: dt.date) -> dict[int, str]:
+        ids = parsing.establishments(self._bookings(member, since))
+        if not ids:
+            return {}
+        query = urllib.parse.urlencode({"id__in": ",".join(map(str, sorted(ids)))})
+        return parsing.studios(self._pages("studios", f"{API}/core-data/v1/establishment/?{query}"))
 
     def packs(self, member: int) -> list[Pack]:
         url = f"{API}/buyable/v1/payment-pack/consumer-payment-pack/?member={member}"
@@ -66,6 +69,12 @@ class BsportGateway:
             f"{API}/buyable/v1/payment-pack/consumer-payment-pack/{pack.id}/register_booking/",
             {"offer": offer.id},
         )
+
+    def _bookings(self, member: int, since: dt.date) -> list[parsing.Row]:
+        query = urllib.parse.urlencode(
+            {"member": member, "min_date": since.isoformat(), "page_size": 100}
+        )
+        return self._pages("bookings", f"{API}/book/v1/booking/?{query}")
 
     def _offer_rows(self, first: dt.date, last: dt.date, **scope: int) -> list[parsing.Row]:
         query = urllib.parse.urlencode(

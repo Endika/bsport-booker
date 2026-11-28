@@ -23,7 +23,7 @@ class BookingGateway(Protocol):
     def member_id(self) -> int:
         pass
 
-    def booked_offers(self) -> set[int]:
+    def booked_offers(self, member: int, since: dt.date) -> set[int]:
         pass
 
     def packs(self, member: int) -> list[Pack]:
@@ -37,7 +37,7 @@ class BookingGateway(Protocol):
     def book(self, pack: Pack, offer: Offer) -> None:
         pass
 
-    def studios(self) -> dict[int, str]:
+    def studios(self, member: int, since: dt.date) -> dict[int, str]:
         """Where your upcoming bookings are: the only way bsport tells a member its studios."""
         pass
 
