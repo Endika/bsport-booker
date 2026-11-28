@@ -92,6 +92,18 @@ def test_a_class_you_cancelled_is_said_once_and_never_booked_again(home, bsport)
     assert len(news) == 1
 
 
+def test_a_class_the_studio_opens_later_is_booked_on_the_next_run(home, bsport):
+    bsport.pack(*SEPTEMBER, credits=5)
+    monday = bsport.offer("2026-09-28T11:00", available=False)
+    assert tick(home, bsport) == 0
+    assert booked_offers(bsport) == []
+
+    monday["available"] = True
+    assert tick(home, bsport) == 0
+
+    assert booked_offers(bsport) == [monday["id"]]
+
+
 def test_cancelling_one_class_leaves_the_others_to_be_booked(home, bsport):
     bsport.pack(*SEPTEMBER, credits=5)
     monday = bsport.offer("2026-09-28T11:00")
