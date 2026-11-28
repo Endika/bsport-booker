@@ -15,7 +15,7 @@ def discover(bsport: BookingGateway, today: dt.date) -> tuple[bool, list[str]]:
     found: list[str] = []
     try:
         bsport.login()
-        studios = bsport.studios()
+        studios = bsport.studios(bsport.member_id(), today)
         if not studios:
             return False, [messages.NO_STUDIOS]
         for establishment, title in sorted(studios.items()):

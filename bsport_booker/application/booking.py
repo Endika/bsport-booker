@@ -58,7 +58,7 @@ def book_due(
     today = now.date()
     member = bsport.member_id()
     fetched = packs = bsport.packs(member)
-    booked = bsport.booked_offers()
+    booked = bsport.booked_offers(member, today)
     last = today + dt.timedelta(days=config.horizon_days)
     offers = bsport.offers(config.company, config.establishment, today, last)
     report.published_until = published_until(offers, config.classes)

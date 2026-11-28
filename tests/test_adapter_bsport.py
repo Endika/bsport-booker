@@ -87,17 +87,23 @@ def test_packs_without_dates_are_dropped_and_a_missing_count_means_unlimited():
 
 
 def test_only_live_bookings_count_as_booked():
-    rows = [{"offer": {"id": 1}, "status": True}, {"offer": {"id": 2}, "status": False}]
+    rows: list[dict[str, Any]] = [
+        {"offer": 1, "date_canceled": None, "is_deleted": False},
+        {"offer": 2, "date_canceled": "2026-11-18T12:57:29+01:00", "is_deleted": False},
+        {"offer": 3, "date_canceled": None, "is_deleted": True},
+    ]
 
     assert parsing.booked(rows) == {1}
 
 
-def test_studios_come_from_bookings_that_name_one():
-    rows: list[dict[str, Any]] = [
-        {"offer": {"activity": {"etablissement": {"id": 5678, "title": "Estudio Demo"}}}},
-        {"offer": {"activity": {"etablissement": None}}},
-        {"offer": None},
-    ]
+def test_establishments_come_from_bookings_that_name_one():
+    rows: list[dict[str, Any]] = [{"establishment": 5678}, {"establishment": None}, {}]
+
+    assert parsing.establishments(rows) == {5678}
+
+
+def test_studios_are_titled_by_id():
+    rows: list[dict[str, Any]] = [{"id": 5678, "title": "Estudio Demo"}, {"id": None}]
 
     assert parsing.studios(rows) == {5678: "Estudio Demo"}
 
@@ -134,7 +140,7 @@ def test_offers_on_every_page_behind_links_next_are_read():
 def test_bookings_on_every_page_behind_a_top_level_next_are_read():
     bsport = FakeBsport(page_size=2, bookings=[1, 2, 3, 4, 5])
 
-    assert logged_in(bsport).booked_offers() == {1, 2, 3, 4, 5}
+    assert logged_in(bsport).booked_offers(7, OCTOBER[0]) == {1, 2, 3, 4, 5}
 
 
 def test_a_list_shorter_than_its_count_raises():

@@ -107,12 +107,18 @@ class FakeBsport:
     ) -> Response:
         if (method, path) == ("GET", "/core-data/v1/member/") and query.get("me") == "true":
             return self._page([{"id": MEMBER}], query, url)
-        if (method, path) == ("GET", "/api-v0/booking/future/"):
+        if (method, path) == ("GET", "/book/v1/booking/"):
+            assert query.get("member") == str(MEMBER)
+            assert query.get("min_date")
             rows = [
-                {"offer": {"id": o, "activity": {"etablissement": self.studio}}, "status": True}
+                {"offer": o, "establishment": self.studio.get("id"), "date_canceled": None}
                 for o in self.bookings
             ]
             return self._page(rows, query, url)
+        if (method, path) == ("GET", "/core-data/v1/establishment/"):
+            wanted = query["id__in"].split(",")
+            found = [self.studio] if str(self.studio.get("id")) in wanted else []
+            return self._page(found, query, url)
         if (method, path) == ("GET", "/buyable/v1/payment-pack/consumer-payment-pack/"):
             assert query.get("member") == str(MEMBER)
             return json_response(self.packs)  # the real one is not paginated either
